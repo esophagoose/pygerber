@@ -37,6 +37,20 @@ class QuadrantMode(enum.Enum):
     UNKNOWN = 3
 
 
+class ApertureTemplate(enum.Enum):
+    CIRCLE = "C"
+    RECT = "R"
+    OBROUND = "O"
+    POLYGON = "P"
+    CUSTOM = "X"
+
+    @classmethod
+    def get(cls, value):
+        if len(value) == 1:
+            return ApertureTemplate(value)
+        return ApertureTemplate.CUSTOM
+
+
 REGEX_OPERATION_CMD = r"^X(\d+)Y(\d+)$"
 
 
@@ -45,9 +59,14 @@ def get_xy_point(text):
     return (float(x), float(y))
 
 
+class Aperture(typing.NamedTuple):
+    index: int
+    type: ApertureTemplate
+    dimension: tuple
+
+
 class OperationState(typing.NamedTuple):
-    aperatures: dict
-    current_aperature: int
+    aperture: Aperture
     current_point: tuple
     scalars: tuple
     polarity: bool
@@ -65,10 +84,10 @@ class GerberLayer:
         logging.info(f"\tFile: {filepath}")
         logging.info(f"\tType: {FILE_EXT_TO_NAME[extension].upper()}")
 
-        self.current_aperature = None
+        self.current_aperture = None
         self.polarity = None
         self.path = filepath
-        self.aperatures = {}
+        self.apertures = {}
         self.current_point = None
         self.comments = ""
         self.units = Units.UNKNOWN
@@ -118,12 +137,12 @@ class GerberLayer:
             self.polarity = content == "D"
             logging.info(f"Setting polarity to {self.polarity}")
         elif op_type == gf.GerberFormat.APERTURE_DEFINE:
-            aid, shape, dimensions = self._define_aperature(content)
-            self.aperatures[aid] = (shape, dimensions)
-            logging.info(f"Add aperature: {aid}")
-        elif op_type == gf.GerberFormat.SET_APERATURE:
-            self.current_aperature = int(data[1:])
-            logging.info(f"Current aperature set to: {self.current_aperature}")
+            aperture = self._define_aperture(content)
+            self.apertures[aperture.index] = aperture
+            logging.info(f"Add aperture: {aperture.index}")
+        elif op_type == gf.GerberFormat.SET_APERTURE:
+            self.current_aperture = int(data[1:])
+            logging.info(f"Current aperture set to: {self.current_aperture}")
         elif op_type in [
             gf.GerberFormat.OPERATION_FLASH,
             gf.GerberFormat.OPERATION_MOVE,
@@ -145,8 +164,7 @@ class GerberLayer:
 
     def save_state(self):
         return OperationState(
-            aperatures=self.aperatures,
-            current_aperature=self.current_aperature,
+            aperture=self.apertures[self.current_aperture],
             polarity=self.polarity,
             units=self.units,
             quadrant_mode=self.quadrant_mode,
@@ -154,13 +172,14 @@ class GerberLayer:
             current_point=self.current_point,
         )
 
-    def _define_aperature(self, line):
+    def _define_aperture(self, line):
         pattern = re.compile(r"^D(\d+)([A-z]+),([\d.X]+)$")
-        matches = pattern.findall(line)
-        if len(matches) != 1:
-            raise RuntimeError(f"Failed to match one item! {matches} {line}")
-        aperture_id, shape, dimensions = matches[0]
-        return aperture_id, shape, dimensions.split("X")
+        aperture_id, shape, dimensions = pattern.findall(line)[0]
+        return Aperture(
+            index=int(aperture_id),
+            type=ApertureTemplate.get(shape),
+            dimension=dimensions.split("X")
+        )
 
     def _run_operation(self, op_type: gf.GerberFormat, content: str):
         point = self.scale(get_xy_point(content))
@@ -178,4 +197,4 @@ class GerberLayer:
         self.sigfig_y = int(decy)
 
 
-GerberLayer("./outputs/gerber_writer_example_synthetic.gtl").read()
+GerberLayer("./example.gtl").read()
