@@ -2,8 +2,8 @@ import os
 import re
 import enum
 import logging
-
-from format import GerberFormat
+import typing
+import gerber_format as gf
 
 import coloredlogs
 
@@ -25,7 +25,7 @@ FILE_EXT_TO_NAME = {
 }
 
 
-class Unit(enum.Enum):
+class Units(enum.Enum):
     MM = "MM"
     INCH = "IN"
     UNKNOWN = "XX"
@@ -45,7 +45,17 @@ def get_xy_point(text):
     return (float(x), float(y))
 
 
-class Layer:
+class OperationState(typing.NamedTuple):
+    aperatures: dict
+    current_aperature: int
+    current_point: tuple
+    scalars: tuple
+    polarity: bool
+    quadrant_mode: QuadrantMode
+    units: Units
+
+
+class GerberLayer:
     def __init__(self, filepath):
         extension = os.path.splitext(filepath)[1].lower()
         if extension not in FILE_EXT_TO_NAME:
@@ -58,6 +68,15 @@ class Layer:
         self.current_aperature = None
         self.polarity = None
         self.path = filepath
+        self.aperatures = {}
+        self.current_point = None
+        self.comments = ""
+        self.units = Units.UNKNOWN
+        self.quadrant_mode = QuadrantMode.UNKNOWN
+        self.scalars = ()
+        self.sigfig_x = 1
+        self.sigfig_y = 1
+        self.operations = []
 
     def read(self):
         multiline = False
@@ -65,9 +84,6 @@ class Layer:
             buffer = ""
             for line in f.readlines():
                 buffer += line
-                if ";" in line:
-                    line = line[: line.index(";")]
-                    logging.debug(f"Stripped comment: '{line[line.index(';'):]}'")
                 if line.count("%") not in [0, 2]:
                     multiline = not multiline
                 if multiline:
@@ -79,65 +95,64 @@ class Layer:
                     buffer = buffer[:-1]
                 self._process(buffer)
                 buffer = ""
-        return self
+        return self.operations
 
     def _process(self, data):
-        aperatures = {}
-        comments = ""
-        unit = Unit.UNKNOWN
-        quadrant_mode = QuadrantMode.UNKNOWN
-        decimal = ()
-        self.polarity = True
-        _type, content = GerberFormat.lookup(data)
+        op_type, content = gf.GerberFormat.lookup(data)
 
-        if _type == GerberFormat.COMMENT:
-            comments += data[4:]
-        elif _type == GerberFormat.UNITS:
-            unit = Unit(data[2:])
-            logging.info(f"Switching units to {unit}")
-        elif _type == GerberFormat.QUADMODE_SINGLE:
+        if op_type == gf.GerberFormat.COMMENT:
+            self.comments += content + "\n"
+        elif op_type == gf.GerberFormat.UNITS:
+            self.units = Units(data[2:])
+            logging.info(f"Switching units to {self.units}")
+        elif op_type == gf.GerberFormat.QUADMODE_SINGLE:
             logging.info("Switching to single quadrant mode")
-            quadrant_mode = QuadrantMode.SINGLE
-        elif _type == GerberFormat.QUADMODE_MULTI:
+            self.quadrant_mode = QuadrantMode.SINGLE
+        elif op_type == gf.GerberFormat.QUADMODE_MULTI:
             logging.info("Switching to multi quadrant mode")
-            quadrant_mode = QuadrantMode.MULTI
-        elif _type == GerberFormat.FORMAT:
-            decimal = self.get_decimal_places(data)
-            logging.info(f"Got decimal places: {decimal}")
-        elif _type == GerberFormat.LOAD_POLARITY:
+            self.quadrant_mode = QuadrantMode.MULTI
+        elif op_type == gf.GerberFormat.FORMAT:
+            self._set_scalars(data)
+            logging.info(f"Got decimal places: {self.scalars}")
+        elif op_type == gf.GerberFormat.LOAD_POLARITY:
             self.polarity = content == "D"
             logging.info(f"Setting polarity to {self.polarity}")
-        elif _type == GerberFormat.APERTURE_DEFINE:
+        elif op_type == gf.GerberFormat.APERTURE_DEFINE:
             aid, shape, dimensions = self._define_aperature(content)
-            aperatures[aid] = (shape, dimensions)
+            self.aperatures[aid] = (shape, dimensions)
             logging.info(f"Add aperature: {aid}")
-        elif _type == GerberFormat.SET_APERATURE:
+        elif op_type == gf.GerberFormat.SET_APERATURE:
             self.current_aperature = int(data[1:])
-            logging.info(f"Changing current aperature to: {self.current_aperature}")
-        elif _type == GerberFormat.OPERATION_INTERP:
-            point = get_xy_point(content)
-            self.make_line(self.current_point, point)
-            self.current_point = point
-            logging.info(f"Draw line from {self.current_point} to {point}")
-        elif _type == GerberFormat.OPERATION_MOVE:
-            self.current_point = get_xy_point(content)
-            logging.info(f"Moved point to {self.current_point}")
-        elif _type == GerberFormat.OPERATION_FLASH:
-            point = get_xy_point(content)
-            self.add_aperature(point)
-            self.current_point = point
-            logging.info(f"Flash aperture to {self.current_point}")
-        elif _type == GerberFormat.APERTURE_MACRO:
+            logging.info(f"Current aperature set to: {self.current_aperature}")
+        elif op_type in [
+            gf.GerberFormat.OPERATION_FLASH,
+            gf.GerberFormat.OPERATION_MOVE,
+            gf.GerberFormat.OPERATION_INTERP,
+        ]:
+            self._run_operation(op_type, content)
+            logging.info(f"Operation: {op_type}, point: {self.current_point}")
+        elif op_type == gf.GerberFormat.APERTURE_MACRO:
             logging.warning("Unhandled aperture define")
-        elif _type == GerberFormat.END_OF_FILE:
+        elif op_type == gf.GerberFormat.END_OF_FILE:
             logging.info("End of file command.")
         else:
             logging.warning(f"Unknown line: {data}")
 
-    def add_aperature(self, point, aperature=None):
-        if not aperature:
-            aperature = self.current_aperature
-        raise NotImplementedError()
+    def scale(self, point):
+        x = round(point[0] * self.scalars[0], self.sigfig_x)
+        y = round(point[1] * self.scalars[1], self.sigfig_y)
+        return x, y
+
+    def save_state(self):
+        return OperationState(
+            aperatures=self.aperatures,
+            current_aperature=self.current_aperature,
+            polarity=self.polarity,
+            units=self.units,
+            quadrant_mode=self.quadrant_mode,
+            scalars=self.scalars,
+            current_point=self.current_point,
+        )
 
     def _define_aperature(self, line):
         pattern = re.compile(r"^D(\d+)([A-z]+),([\d.X]+)$")
@@ -146,3 +161,21 @@ class Layer:
             raise RuntimeError(f"Failed to match one item! {matches} {line}")
         aperture_id, shape, dimensions = matches[0]
         return aperture_id, shape, dimensions.split("X")
+
+    def _run_operation(self, op_type: gf.GerberFormat, content: str):
+        point = self.scale(get_xy_point(content))
+        self.operations.append((op_type, point, self.save_state()))
+        self.current_point = point
+
+    def _set_scalars(self, text):
+        regex = r"FSLAX(\d)(\d)Y(\d)(\d)"
+        match = re.search(regex, text)
+        if not match:
+            raise RuntimeError("No decimal places available!")
+        intx, decx, inty, decy = match.groups()
+        self.scalars = (pow(10, -int(decx)), pow(10, -int(decy)))
+        self.sigfig_x = int(decx)
+        self.sigfig_y = int(decy)
+
+
+GerberLayer("./outputs/gerber_writer_example_synthetic.gtl").read()
