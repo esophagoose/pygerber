@@ -1,14 +1,5 @@
-import math
 import zipfile
 import os
-import re
-import shutil
-import svgwrite
-from svgwrite import cm, mm, inch
-from svglib.svglib import svg2rlg
-import reportlab.graphics as graphics
-from reportlab.graphics import renderPDF
-from reportlab.pdfgen import canvas
 import tempfile
 
 
