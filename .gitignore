@@ -152,6 +152,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# OS-specific
+.DS_Store
+
 # Gerber files for unit testing
 testdata/*
 !testdata/README.md
