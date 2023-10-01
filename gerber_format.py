@@ -29,6 +29,24 @@ class GerberFormat(enum.Enum):
     ATTRIBUTE_OBJECT = "TO"  # Adds an object attribute
     ATTRIBUTE_DELETE = "TD"  # Deletes attributes
     END_OF_FILE = "M02"
+    # Deprecated commands
+    DEPRECATED_UNITS_INCH = "G70"  # set units to inches - Use MO
+    DEPRECATED_UNITS_MM = "G71"  # set units to mm - Use MO
+    DEPRECATED_ABSOLUTE_NOTATION = "G90"  # Use FS
+    DEPRECATED_INCREMENTAL_NOTATION = "G91"  # Use FS
+    DEPRECATED_SELECT_APERTURE = (
+        "G54"  # Precedes an aperture selection command and has no effect
+    )
+    DEPRECATED_PROGRAM_STOP = "M00"  # Same as M02
+    DEPRECATED_OPTIONAL_STOP = "M01"  # No-op
+    DEPRECATED_IMAGE_POLARITY = "IP"
+    DEPRECATED_AXES_CORRESPONDENCE = "AS"
+    DEPRECATED_IMAGE_ROTATION = "IR"
+    DEPRECATED_IMAGE_MIRRORING = "MI"
+    DEPRECATED_IMAGE_OFFSET = "OF"
+    DEPRECATED_SCALE_FACTOR = "SF"
+    DEPRECATED_FILE_IMAGE_NAME = "IN"  # No-op, type of comment. Use G04
+    DEPRECATED_LOAD_NAME = "LN"  # No-op, type of comment. Use G04
 
     @classmethod
     def lookup(cls, command):
