@@ -13,8 +13,9 @@ coloredlogs.install(level="DEBUG", format="GerberLayer: %(message)s")
 
 
 FILE_EXT_TO_NAME = {
-    ".drl": "drill",
-    ".xln": "drill",
+    ".gbr": "generic",
+    # ".drl": "drill", NOT SUPPORTED
+    # ".xln": "drill", NOT SUPPORTED
     ".gko": "outline",
     ".gm1": "outline",
     ".gtl": "top_copper",
@@ -53,14 +54,6 @@ class ApertureTemplate(enum.Enum):
         return ApertureTemplate.CUSTOM
 
 
-REGEX_OPERATION_CMD = r"^X(\d+)Y(\d+)$"
-
-
-def get_xy_point(text):
-    x, y = re.search(REGEX_OPERATION_CMD, text).groups()
-    return (float(x), float(y))
-
-
 class Aperture(typing.NamedTuple):
     index: int
     type: ApertureTemplate
@@ -89,6 +82,7 @@ class GerberLayer:
 
         self.current_aperture = None
         self.interpolation = None
+        self.attributes = {}
         self.region = False
         self.polarity = None
         self.path = filepath
@@ -102,7 +96,7 @@ class GerberLayer:
         self.sigfig_y = 1
         self.operations = []
 
-    def read(self):
+    def read(self, raise_on_unknown_command=False):
         multiline = False
         with open(self.path, "r") as f:
             buffer = ""
@@ -120,11 +114,11 @@ class GerberLayer:
                 if buffer.endswith("*"):
                     buffer = buffer[:-1]
                 logging.debug(f"Line: {index}, Processing: {buffer}")
-                self._process(buffer)
+                self._process(buffer, raise_on_unknown_command)
                 buffer = ""
         return self.operations
 
-    def _process(self, data):
+    def _process(self, data, raise_on_unknown_command):
         op_type, content = gf.GerberFormat.lookup(data)
 
         if op_type in [
@@ -134,7 +128,7 @@ class GerberLayer:
         ]:
             self.interpolation = op_type
             if content:  # this is rare and poor syntax
-                self._process(content)
+                self._process(content, raise_on_unknown_command)
         elif op_type == gf.GerberFormat.COMMENT:
             self.comments += content + "\n"
         elif op_type == gf.GerberFormat.UNITS:
@@ -166,6 +160,15 @@ class GerberLayer:
         elif op_type == gf.GerberFormat.SET_APERTURE:
             self.current_aperture = int(data[1:])
             logging.info(f"Current aperture set to: {self.current_aperture}")
+        elif op_type == gf.GerberFormat.ATTRIBUTE_FILE:
+            params = content.split(",")
+            self.attributes[params[0][1:]] = params[1:]
+        elif op_type in [
+            gf.GerberFormat.ATTRIBUTE_OBJECT,
+            gf.GerberFormat.ATTRIBUTE_DELETE,
+            gf.GerberFormat.ATTRIBUTE_APERTURE,
+        ]:
+            pass  # TODO: no-op for now - these are just comments
         elif op_type in [
             gf.GerberFormat.OPERATION_FLASH,
             gf.GerberFormat.OPERATION_MOVE,
@@ -179,14 +182,15 @@ class GerberLayer:
             self.region = op_type == gf.GerberFormat.REGION_START
             logging.info(f"{'START' if self.region else 'END'} Region")
         elif op_type in [gf.GerberFormat.DEPRECATED_SELECT_APERTURE]:
-            # no-op
-            self._process(content)
+            self._process(content, raise_on_unknown_command)  # no-op
         elif op_type in [gf.GerberFormat.DEPRECATED_PROGRAM_STOP]:
             pass  # no-op
         elif op_type == gf.GerberFormat.END_OF_FILE:
             logging.info("End of file command.")
         else:
-            logging.warning(f"Unknown line: {data}")
+            logging.warning(f"Unknown command: {data}")
+            if raise_on_unknown_command:
+                raise ValueError(f"Unknown command: {data}")
 
     def scale(self, point):
         x = round(point[0] * self.scalars[0], self.sigfig_x)
@@ -203,8 +207,14 @@ class GerberLayer:
         )
 
     def _run_operation(self, op_type: gf.GerberFormat, content: str):
+        values = re.findall(r"[A-Z]([\+|-]*\d+)", content)
+        assert len(values) in [2, 4], f"Invalid operation parsing: {content}"
         assert self.region or self.current_aperture, "Invalid operation: no aperture!"
-        point = self.scale(get_xy_point(content))
+
+        point = self.scale((float(values[0]), float(values[1])))
+        if len(values) == 4:
+            x, y, i, j = values
+            point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
         aperture = op_type if self.region else self.apertures[self.current_aperture]
         state = OperationState(
             aperture=aperture,
@@ -226,3 +236,7 @@ class GerberLayer:
         self.scalars = (pow(10, -int(decx)), pow(10, -int(decy)))
         self.sigfig_x = int(decx)
         self.sigfig_y = int(decy)
+
+
+if __name__ == "__main__":
+    GerberLayer("./testdata/osw-Edge_Cuts_v.gbr").read()
