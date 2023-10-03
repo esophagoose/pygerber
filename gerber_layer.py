@@ -3,13 +3,14 @@ import re
 import enum
 import logging
 import typing
+import copy
 import gerber_format as gf
 
 
 import coloredlogs
 
 coloredlogs.DEFAULT_LOG_FORMAT = "GerberLayer: %(asctime)s %(levelname)s %(message)s"
-coloredlogs.install(level="DEBUG", format="GerberLayer: %(message)s")
+coloredlogs.install(level="WARNING", format="GerberLayer: %(message)s")
 
 
 FILE_EXT_TO_NAME = {
@@ -62,16 +63,20 @@ class Aperture(typing.NamedTuple):
 
 class OperationState(typing.NamedTuple):
     aperture: Aperture
-    current_point: tuple
-    scalars: tuple
+    interpolation: gf.GerberFormat
+    point: tuple
+    previous_point: tuple
     polarity: bool
     quadrant_mode: QuadrantMode
+    scalars: tuple
     units: Units
 
 
 class GerberLayer:
     def __init__(self, filepath):
-        extension = os.path.splitext(filepath)[1].lower()
+        filename, ext = os.path.splitext(filepath)
+        self.filename = os.path.basename(filename)
+        extension = ext.lower()
         if extension not in FILE_EXT_TO_NAME:
             raise ValueError(f"Unknown file: {filepath}")
         self.file_type = FILE_EXT_TO_NAME[extension]
@@ -95,6 +100,8 @@ class GerberLayer:
         self.sigfig_x = 1
         self.sigfig_y = 1
         self.operations = []
+        self._regions = []
+        self.collection_of_region = []
 
     def read(self, raise_on_unknown_command=False):
         multiline = False
@@ -116,7 +123,7 @@ class GerberLayer:
                 logging.debug(f"Line: {index}, Processing: {buffer}")
                 self._process(buffer, raise_on_unknown_command)
                 buffer = ""
-        return self.operations
+        return self.operations, self.collection_of_region
 
     def _process(self, data, raise_on_unknown_command):
         op_type, content = gf.GerberFormat.lookup(data)
@@ -174,12 +181,21 @@ class GerberLayer:
             gf.GerberFormat.OPERATION_MOVE,
             gf.GerberFormat.OPERATION_INTERP,
         ]:
-            self._run_operation(op_type, content)
+            op = self._run_operation(op_type, content)
             logging.info(f"Operation: {op_type}, point: {self.current_point}")
+            self.current_point = op.point
+            if self.region:
+                self._regions.append((op_type, op))
+            else:
+                self.operations.append((op_type, op))
         elif op_type == gf.GerberFormat.APERTURE_MACRO:
             logging.warning("Unhandled aperture define")
         elif op_type in [gf.GerberFormat.REGION_START, gf.GerberFormat.REGION_END]:
             self.region = op_type == gf.GerberFormat.REGION_START
+            if not self.region:
+                r = copy.deepcopy(self._regions)
+                self.collection_of_region.append(r)
+                self._regions.clear()
             logging.info(f"{'START' if self.region else 'END'} Region")
         elif op_type in [gf.GerberFormat.DEPRECATED_SELECT_APERTURE]:
             self._process(content, raise_on_unknown_command)  # no-op
@@ -215,17 +231,17 @@ class GerberLayer:
         if len(values) == 4:
             x, y, i, j = values
             point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
-        aperture = op_type if self.region else self.apertures[self.current_aperture]
-        state = OperationState(
+        aperture = None if self.region else self.apertures[self.current_aperture]
+        return OperationState(
             aperture=aperture,
             polarity=self.polarity,
             units=self.units,
             quadrant_mode=self.quadrant_mode,
             scalars=self.scalars,
-            current_point=self.current_point,
+            interpolation=self.interpolation,
+            previous_point=self.current_point,
+            point=point,
         )
-        self.operations.append((op_type, point, state))
-        self.current_point = point
 
     def _set_scalars(self, text):
         regex = r"FSLAX(\d)(\d)Y(\d)(\d)"
