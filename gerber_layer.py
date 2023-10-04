@@ -219,7 +219,7 @@ class GerberLayer:
         return Aperture(
             index=int(aperture_id),
             type=ApertureTemplate.get(shape),
-            dimension=dimensions.split("X"),
+            dimension=[float(d) for d in dimensions.split("X")],
         )
 
     def _run_operation(self, op_type: gf.GerberFormat, content: str):
