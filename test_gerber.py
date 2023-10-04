@@ -2,6 +2,7 @@ import os
 import pytest
 
 import gerber_layer as gl
+import renderer
 
 TEST_FILES = [f for f in os.listdir("./testdata") if f[-4:] in gl.FILE_EXT_TO_NAME]
 
@@ -11,6 +12,12 @@ class TestGerberLayer:
     def test_read_gerber_layer(self, filename):
         layer = gl.GerberLayer(f"./testdata/{filename}")
         layer.read(raise_on_unknown_command=True)
+
+    @pytest.mark.parametrize("filename", TEST_FILES)
+    def test_renderer(self, filename):
+        layer = gl.GerberLayer(f"./testdata/{filename}")
+        layer.read()
+        renderer.RenderSvg(layer)
 
 
 if __name__ == "__main__":
