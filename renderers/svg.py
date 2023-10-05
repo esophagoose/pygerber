@@ -1,9 +1,11 @@
-import svgwrite as svg
-from standards.gerber import GerberFormat
-import gerber_layer as gl
-from pathlib import Path
-import sys
 import math
+import sys
+from pathlib import Path
+
+import svgwrite as svg
+
+import layers.gerber_layer as gl
+from standard.gerber import GerberFormat
 
 
 class RenderSvg:

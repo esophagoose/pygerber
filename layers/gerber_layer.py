@@ -1,13 +1,13 @@
-import os
-import re
+import copy
 import enum
 import logging
+import os
+import re
 import typing
-import copy
-import standard.gerber as gf
-
 
 import coloredlogs
+
+import standard.gerber as gf
 
 coloredlogs.DEFAULT_LOG_FORMAT = "GerberLayer: %(asctime)s %(levelname)s %(message)s"
 coloredlogs.install(level="WARNING", format="GerberLayer: %(message)s")
@@ -214,7 +214,8 @@ class GerberLayer:
         point = self.scale((float(values[0]), float(values[1])))
         if len(values) == 4:
             x, y, i, j = values
-            point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
+            point = self.scale((float(x), float(y))), self.scale(
+                (float(i), float(j)))
         aperture = None if self.region else self.apertures[self.current_aperture]
         return OperationState(
             aperture=aperture,

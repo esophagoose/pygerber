@@ -1,7 +1,7 @@
-import zipfile
+import logging
 import os
 import tempfile
-
+import zipfile
 
 FILE_EXT_TO_NAME = {
     "DRL": "drill",
