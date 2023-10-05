@@ -15,5 +15,5 @@ pytest
 
 # References
 - [Gerber Standard](https://www.ucamco.com/files/downloads/file_en/399/the-gerber-file-format-specification-revision-2020-09_en.pdf)
-- [NC Drill Standard](hhttps://www.ucamco.com/files/downloads/file_en/305/xnc-format-specification_en.pdf)
+- [NC Drill Standard](https://www.ucamco.com/files/downloads/file_en/305/xnc-format-specification_en.pdf)
 

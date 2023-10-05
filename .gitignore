@@ -162,4 +162,3 @@ testdata/*
 
 # Output files
 output_files/*
-!output_files/README.md
