@@ -18,14 +18,15 @@ FILE_EXT_TO_NAME = {
 }
 
 STANDARD_COLOR_SET = {
-    "drill",
-    "outline",
-    "top_copper",
-    "top_mask",
-    "top_silk",
-    "bottom_copper",
-    "bottom_mask",
-    "bottom_silk",
+    "background": "black",
+    "drill": "lightgrey",
+    "outline": "maroon",
+    "top_copper": "red",
+    "top_mask": "purple",
+    "top_silk": "yellow",
+    "bottom_copper": "blue",
+    "bottom_mask": "darkblue",
+    "bottom_silk": "darkyellow",
 }
 
 

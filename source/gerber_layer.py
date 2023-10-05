@@ -4,7 +4,7 @@ import enum
 import logging
 import typing
 import copy
-import gerber_format as gf
+import standard.gerber as gf
 
 
 import coloredlogs
@@ -15,8 +15,6 @@ coloredlogs.install(level="WARNING", format="GerberLayer: %(message)s")
 
 FILE_EXT_TO_NAME = {
     ".gbr": "generic",
-    # ".drl": "drill", NOT SUPPORTED
-    # ".xln": "drill", NOT SUPPORTED
     ".gko": "outline",
     ".gm1": "outline",
     ".gtl": "top_copper",

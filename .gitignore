@@ -157,7 +157,8 @@ cython_debug/
 
 # Gerber files for unit testing
 testdata/*
-!testdata/README.md
+!testdata/Test_*
+
 
 # Output files
 output_files/*

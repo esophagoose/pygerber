@@ -34,9 +34,7 @@ class GerberFormat(enum.Enum):
     DEPRECATED_UNITS_MM = "G71"  # set units to mm - Use MO
     DEPRECATED_ABSOLUTE_NOTATION = "G90"  # Use FS
     DEPRECATED_INCREMENTAL_NOTATION = "G91"  # Use FS
-    DEPRECATED_SELECT_APERTURE = (
-        "G54"  # Precedes an aperture selection command and has no effect
-    )
+    DEPRECATED_SELECT_APERTURE = "G54"  # No-op - before aperture selection
     DEPRECATED_PROGRAM_STOP = "M00"  # Same as M02
     DEPRECATED_OPTIONAL_STOP = "M01"  # No-op
     DEPRECATED_IMAGE_POLARITY = "IP"
