@@ -13,20 +13,6 @@ coloredlogs.DEFAULT_LOG_FORMAT = "GerberLayer: %(asctime)s %(levelname)s %(messa
 coloredlogs.install(level="WARNING", format="GerberLayer: %(message)s")
 
 
-FILE_EXT_TO_NAME = {
-    ".gbr": "generic",
-    ".gko": "outline",
-    ".gm1": "outline",
-    ".gtl": "top_copper",
-    ".gts": "top_mask",
-    ".gto": "top_silk",
-    ".gbl": "bottom_copper",
-    ".gbs": "bottom_mask",
-    ".gbo": "bottom_silk",
-    ".profile": "outline",
-}
-
-
 class Units(enum.Enum):
     MM = "MM"
     INCH = "IN"
@@ -75,9 +61,9 @@ class GerberLayer:
         filename, ext = os.path.splitext(filepath)
         self.filename = os.path.basename(filename)
         extension = ext.lower()
-        if extension not in FILE_EXT_TO_NAME:
+        if extension not in gf.FILE_EXT_TO_NAME:
             raise ValueError(f"Unknown file: {filepath}")
-        self.file_type = FILE_EXT_TO_NAME[extension]
+        self.file_type = gf.FILE_EXT_TO_NAME[extension]
 
         logging.info(f"Starting gerber layer importer:")
         logging.info(f"\tFile: {filepath}")

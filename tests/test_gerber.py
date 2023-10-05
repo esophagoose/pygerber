@@ -3,14 +3,15 @@ import pytest
 import logging
 
 # import gerber_layer as gl
-import standard.nc_drill as drl
+import source.drill_layer as drl
+import standard.nc_drill as ds
+
 # import renderer
 
 logging.basicConfig(level=logging.DEBUG)
 
-
-DRILL_FILES = [f for f in os.listdir("./testdata") if f[-3:].upper() in drl.FILE_EXT]
-
+TEST_FILES = os.listdir("./testdata")
+DRILL_FILES = [f for f in TEST_FILES if f[-3:].upper() in ds.FILE_EXTENSIONS]
 
 
 class TestGerberLayer:
@@ -27,7 +28,7 @@ class TestGerberLayer:
 
     @pytest.mark.parametrize("filename", DRILL_FILES)
     def test_renderer(self, filename):
-        layer = drl.NCDrill(f"./testdata/{filename}")
+        layer = drl.DrillLayer(f"./testdata/{filename}")
         layer.read()
 
 

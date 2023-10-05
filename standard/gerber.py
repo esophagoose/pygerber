@@ -1,6 +1,20 @@
 import enum
 
 
+FILE_EXT_TO_NAME = {
+    ".gbr": "generic",
+    ".gko": "outline",
+    ".gm1": "outline",
+    ".gtl": "top_copper",
+    ".gts": "top_mask",
+    ".gto": "top_silk",
+    ".gbl": "bottom_copper",
+    ".gbs": "bottom_mask",
+    ".gbo": "bottom_silk",
+    ".profile": "outline",
+}
+
+
 class GerberFormat(enum.Enum):
     FORMAT = "FS"  # coordinate format
     UNITS = "MO"  # sets the units
