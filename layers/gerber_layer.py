@@ -214,8 +214,7 @@ class GerberLayer:
         point = self.scale((float(values[0]), float(values[1])))
         if len(values) == 4:
             x, y, i, j = values
-            point = self.scale((float(x), float(y))), self.scale(
-                (float(i), float(j)))
+            point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
         aperture = None if self.region else self.apertures[self.current_aperture]
         return OperationState(
             aperture=aperture,
@@ -233,7 +232,7 @@ class GerberLayer:
         match = re.search(regex, text)
         if not match:
             raise RuntimeError("No decimal places available!")
-        intx, decx, inty, decy = match.groups()
+        _, decx, _, decy = match.groups()
         self.scalars = (pow(10, -int(decx)), pow(10, -int(decy)))
         self.sigfig_x = int(decx)
         self.sigfig_y = int(decy)

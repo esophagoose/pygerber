@@ -1,6 +1,7 @@
 import os
 import pytest
 import logging
+import tempfile
 
 import layers.gerber_layer as gl
 import layers.drill_layer as drl
@@ -27,9 +28,19 @@ class TestPythonGerber:
         renderer.RenderSvg(layer)
 
     @pytest.mark.parametrize("filename", DRILL_FILES)
-    def test_drill_layer(self, filename):
+    def test_drill_layer_read(self, filename):
         layer = drl.DrillLayer(f"./testdata/{filename}")
         layer.read()
+
+    def test_drill_layer_write(self):
+        layer = drl.DrillLayer("./testdata/Test_Drill.drl")
+        layer.read()
+
+        with tempfile.NamedTemporaryFile() as output_file:
+            layer.write(output_file.name)
+            new_layer = drl.DrillLayer(output_file.name)
+            new_layer.read()
+            assert layer.operations == new_layer.operations
 
 
 if __name__ == "__main__":
