@@ -3,8 +3,13 @@ This library provides a simple and elegant parser for Gerber and NC Drill files.
 
 # Features
 - [x] Gerber X2 file parser
-- [x] NC Drill file parser
-- [ ] SVG Renderer
+    - [x] Reading gerber layer
+    - [ ] Writing gerber layer
+    - [ ] SVG rendering (in-progress)
+- [ ] NC Drill file parser
+    - [x] Reading X2 standard files
+    - [x] Writing drill files
+    - [ ] SVG rendering of drill files
 
 
 # Running Unit Tests
