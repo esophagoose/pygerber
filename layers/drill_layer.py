@@ -1,24 +1,47 @@
 import logging
-import copy
+import dataclasses
 import os
 import re
 
 from standard.nc_drill import NCDrillFormat
 
 
-def parse_xy(text):
-    match = re.search(r"X([\+|\-|\d.]+)Y([\+|\-|\d.]+)", text)
-    if match:
-        x, y = match.groups()
-        return float(x), float(y)
-    else:
-        raise ValueError(f"Invalid XY format: {text}")
+@dataclasses.dataclass(frozen=True)
+class DrillHit:
+    x: float
+    y: float
+
+    @classmethod
+    def decode(cls, text):
+        match = re.search(r"X([\+|\-|\d.]+)Y([\+|\-|\d.]+)", text)
+        if match:
+            x, y = match.groups()
+            return cls(float(x), float(y))
+        else:
+            raise ValueError(f"Invalid XY format: {text}")
+
+    def encode(self):
+        x = int(self.x) if int(self.x) == self.x else self.x
+        y = int(self.y) if int(self.y) == self.y else self.y
+        return f"X{str(round(x, 6)).zfill(6)}Y{str(round(y, 6)).zfill(6)}"
 
 
-def point_to_drill_hit(pt):
-    x = int(pt[0]) if int(pt[0]) == pt[0] else pt[0]
-    y = int(pt[1]) if int(pt[1]) == pt[1] else pt[1]
-    return f"X{str(round(x, 6)).zfill(6)}Y{str(round(y, 6)).zfill(6)}"
+@dataclasses.dataclass(frozen=True)
+class DrillOperation:
+    tool: int
+    point: DrillHit
+
+
+@dataclasses.dataclass(frozen=True)
+class RoutOperation:
+    tool: int
+    type: NCDrillFormat
+    point: DrillHit
+
+
+@dataclasses.dataclass(frozen=True)
+class ToolOperation:
+    down: bool
 
 
 class DrillLayer:
@@ -33,8 +56,6 @@ class DrillLayer:
         self.operations = []
         self.comments = ""
         self._tool_index = None
-        self._rout = []
-        self._routing = False
 
     def read(self):
         in_header = True
@@ -79,8 +100,11 @@ class DrillLayer:
         elif op_type in [NCDrillFormat.DRILL_MODE, NCDrillFormat.ROUT_MODE]:
             self.mode = op_type
             if content:
-                point = parse_xy(content)
-                self.operations.append((self.mode, self._tool_index, point))
+                operation = RoutOperation(
+                    tool=self._tool_index, type=op_type, point=DrillHit.decode(
+                        content),
+                )
+                self.operations.append(operation)
         elif op_type == NCDrillFormat.TOOL_COMMAND:
             index = int(content[1:])
             if index == 0:
@@ -88,75 +112,55 @@ class DrillLayer:
             self._tool_index = index
         elif op_type == NCDrillFormat.DRILL_HIT:
             assert self.mode == NCDrillFormat.DRILL_MODE, "Must be in drill mode to hit"
-            point = parse_xy(content)
-            self.operations.append((self.mode, self._tool_index, point))
-        elif op_type == NCDrillFormat.TOOL_DOWN:
-            self._routing = True
-        elif op_type == NCDrillFormat.TOOL_UP:
-            self.operations.append(
-                (self.mode, self._tool_index, copy.deepcopy(self._rout))
+            operation = DrillOperation(
+                tool=self._tool_index, point=DrillHit.decode(content),
             )
-            self._rout.clear()
-            self._routing = False
-        elif op_type == NCDrillFormat.LINEAR_ROUT:
-            assert self._routing, f"Invalid {op_type} while tool is up"
-            self._rout.append((op_type, parse_xy(content)))
-        elif op_type == NCDrillFormat.CIRCULAR_CLOCKWISE_ROUT:
-            assert self._routing, f"Invalid {op_type} while tool is up"
-            self._rout.append((op_type, parse_xy(content)))
-        elif op_type == NCDrillFormat.CIRCULAR_COUNTERCLOCKWISE_ROUT:
-            assert self._routing, f"Invalid {op_type} while tool is up"
-            self._rout.append((op_type, parse_xy(content)))
+            self.operations.append(operation)
+        elif op_type == NCDrillFormat.TOOL_DOWN:
+            self.operations.append(ToolOperation(True))
+        elif op_type == NCDrillFormat.TOOL_UP:
+            self.operations.append(ToolOperation(False))
+        elif op_type in [
+            NCDrillFormat.LINEAR_ROUT,
+            NCDrillFormat.CIRCULAR_CLOCKWISE_ROUT,
+            NCDrillFormat.CIRCULAR_COUNTERCLOCKWISE_ROUT,
+        ]:
+            operation = RoutOperation(
+                tool=self._tool_index, type=op_type, point=DrillHit.decode(
+                    content),
+            )
+            self.operations.append(operation)
         elif op_type in [NCDrillFormat.ABSOLUTE_UNITS, NCDrillFormat.END_OF_FILE]:
             return
         else:
             raise ValueError(f"Unknown command: {op_type}")
 
-    def _write_drill(self, operation, f, skip_mode=False, skip_tool=False):
-        mode, tool_index, point = operation
-        tool = f"T{str(tool_index).zfill(2)}\n"
-        if not skip_mode:
-            f.write(mode.value + "\n")
-        if not skip_tool:
-            f.write(tool)
-        f.write(point_to_drill_hit(point) + "\n")
-
-    def _write_rout(self, operation, f, skip_mode=False, skip_tool=False):
-        mode, tool_index, steps = operation
-        tool = f"T{str(tool_index).zfill(2)}\n"
-        if isinstance(steps[0], (int, float)) and len(steps) == 2:
-            f.write(f"{mode.value}{point_to_drill_hit(steps)}\n")
-            return
-        route = [f"{op.value}{point_to_drill_hit(xy)}\n" for op, xy in steps]
-        if not skip_mode:
-            f.write(mode.value + "\n")
-        if not skip_tool:
-            f.write(tool)
-        f.write(NCDrillFormat.TOOL_DOWN.value + "\n")
-        f.writelines(route)
-        f.write(NCDrillFormat.TOOL_UP.value + "\n")
-
     def write(self, output_file):
-        def _newline(text):
-            return f"{text}\n"
-
         with open(output_file, "w") as f:
             # Write header
-            f.write(_newline(NCDrillFormat.START_OF_HEADER.value))
-            f.write(_newline(self.units))
-            f.writelines([f"T{i}C{d}\n" for i, d in self.tools.items()])
-            f.write(_newline(NCDrillFormat.END_OF_HEADER.value))
+            f.write(f"{NCDrillFormat.START_OF_HEADER.value}\n")
+            f.write(f"{self.units}\n")
+            f.writelines([f"T{str(i).zfill(2)}C{d}\n" for i,
+                         d in self.tools.items()])
+            f.write(f"{NCDrillFormat.END_OF_HEADER.value}\n")
 
-            prev_tool = None
-            prev_mode = None
-            for op in self.operations:
-                mode, tool, _ = op
-                same_mode = prev_mode == mode
-                same_tool = prev_tool == tool
-                if mode == NCDrillFormat.ROUT_MODE:
-                    self._write_rout(op, f, same_mode, same_tool)
+            previous_op = None
+            for index, op in enumerate(self.operations):
+                if not isinstance(op, ToolOperation):
+                    tool = f"T{str(op.tool).zfill(2)}\n"
+                    if not previous_op or op.tool != previous_op.tool:
+                        f.write(tool)
+                if isinstance(op, RoutOperation):
+                    f.write(f"{op.type.value}{op.point.encode()}\n")
+                    previous_op = op
+                elif isinstance(op, DrillOperation):
+                    if not index or (self.operations[index - 1]) == RoutOperation:
+                        f.write(f"{NCDrillFormat.DRILL_MODE.value}\n")
+                    f.write(f"{op.point.encode()}\n")
+                    previous_op = op
+                elif isinstance(op, ToolOperation):
+                    cmd = NCDrillFormat.TOOL_DOWN if op.down else NCDrillFormat.TOOL_UP
+                    f.write(f"{cmd.value}\n")
                 else:
-                    self._write_drill(op, f, same_mode, same_tool)
-                prev_mode = mode
-                prev_tool = tool
-            f.writelines([NCDrillFormat.END_OF_FILE.value])
+                    raise ValueError(f"Invalid operation: {op}")
+            f.write(f"{NCDrillFormat.END_OF_FILE.value}\n")
