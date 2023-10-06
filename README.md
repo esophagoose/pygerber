@@ -2,13 +2,15 @@
 This library provides a simple and elegant parser for Gerber and NC Drill files. It's written in pure Python and supports all Gerber commands, including most deprecated ones.
 
 # Features
-- [x] Gerber X2 file parser
+- [ ] Gerber X2 file parser
     - [x] Reading gerber layer
     - [ ] Writing gerber layer
+    - [ ] API for building gerber files (in-progress)
     - [ ] SVG rendering (in-progress)
 - [ ] NC Drill file parser
     - [x] Reading X2 standard files
     - [x] Writing drill files
+    - [ ] API for building drill files (in-progress)
     - [ ] SVG rendering of drill files
 
 

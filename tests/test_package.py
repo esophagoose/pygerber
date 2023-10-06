@@ -29,17 +29,17 @@ class TestPythonGerber:
 
     @pytest.mark.parametrize("filename", DRILL_FILES)
     def test_drill_layer_read(self, filename):
-        layer = drl.DrillLayer(f"./testdata/{filename}")
-        layer.read()
+        layer = drl.DrillLayer()
+        layer.read(f"./testdata/{filename}")
 
     def test_drill_layer_write(self):
-        layer = drl.DrillLayer("./testdata/Test_Drill.drl")
-        layer.read()
+        layer = drl.DrillLayer()
+        layer.read("./testdata/Test_Drill.drl")
 
         with tempfile.NamedTemporaryFile() as output_file:
             layer.write(output_file.name)
-            new_layer = drl.DrillLayer(output_file.name)
-            new_layer.read()
+            new_layer = drl.DrillLayer()
+            new_layer.read(output_file.name)
             assert layer.operations == new_layer.operations
 
 

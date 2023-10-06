@@ -45,21 +45,19 @@ class ToolOperation:
 
 
 class DrillLayer:
-    def __init__(self, filepath):
-        logging.info(f"Starting drill layer importer:")
-        logging.info(f"\tFile: {filepath}")
-
-        self.filename = os.path.basename(filepath)
-        self.path = filepath
+    def __init__(self):
         self.tools = {}
         self.mode = NCDrillFormat.DRILL_MODE
         self.operations = []
         self.comments = ""
         self._tool_index = None
 
-    def read(self):
+    def read(self, path):
+        logging.info(f"Starting drill layer importer:")
+        logging.info(f"\tFile: {path}")
+
         in_header = True
-        with open(self.path, "r") as f:
+        with open(path, "r") as f:
             for index, line in enumerate(f.readlines()):
                 line = line.strip()
                 if not line:
