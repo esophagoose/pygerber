@@ -3,19 +3,15 @@ import os
 import tempfile
 import zipfile
 
-FILE_EXT_TO_NAME = {
-    "DRL": "drill",
-    "XLN": "drill",
-    "GKO": "outline",
-    "GM1": "outline",
-    "GTL": "top_copper",
-    "GTS": "top_mask",
-    "GTO": "top_silk",
-    "GBL": "bottom_copper",
-    "GBS": "bottom_mask",
-    "GBO": "bottom_silk",
-    "PROFILE": "outline",
-}
+import standard.gerber
+import standard.nc_drill
+import layers.gerber_layer as gl
+import layers.drill_layer as drl
+
+FILE_EXT_TO_LAYER = {
+    k: gl.GerberLayer for k in standard.gerber.FILE_EXT_TO_NAME}.update(
+    {k: drl.DrillLayer for k in standard.nc_drill.FILE_EXTENSIONS}
+)
 
 STANDARD_COLOR_SET = {
     "background": "black",
@@ -37,19 +33,19 @@ class Board:
         if extension == "zip":
             temp_path = tempfile.mkdtemp()
             logging.info(f"Extracting files to {temp_path}")
-            with zipfile.ZipFile(file, "r") as zipped:
+            with zipfile.ZipFile(filepath, "r") as zipped:
                 zipped.extractall(temp_path)
-                self.read_files_in_folder(temp_path)
+                self.read_in_files_from_folder(temp_path)
         elif os.path.isdir(self.path):
-            self.read_files_in_folder(filepath)
+            self.read_in_files_from_folder(filepath)
         else:
             raise ValueError(f"Unknown file: {filepath}")
 
     def read_in_files_from_folder(self, path):
-        for root, dirs, files in os.walk(path):
+        for _, _, files in os.walk(path):
             for filename in files:
                 extension = os.path.splitext(filename)[1].upper()
-                if extension in FILE_EXT_TO_NAME:
-                    self.files[FILE_EXT_TO_NAME[extension]] = filename
+                if extension in FILE_EXT_TO_LAYER:
+                    self.files[FILE_EXT_TO_LAYER[extension]] = filename
                 else:
                     logging.info(f"Unknown file type: {filename}")

@@ -25,6 +25,9 @@ class DrillHit:
         y = int(self.y) if int(self.y) == self.y else self.y
         return f"X{str(round(x, 6)).zfill(6)}Y{str(round(y, 6)).zfill(6)}"
 
+    def get(self):
+        return self.x, self.y
+
 
 @dataclasses.dataclass(frozen=True)
 class DrillOperation:
@@ -50,7 +53,20 @@ class DrillLayer:
         self.mode = NCDrillFormat.DRILL_MODE
         self.operations = []
         self.comments = ""
+        self.units = None
         self._tool_index = None
+        self._tool_to_index = {}
+        self._index = 0
+
+    def add_hole(self, x: float, y: float, d: float):
+        if d not in self._tool_to_index:
+            self._tool_to_index[d] = self._index
+            self._index += 1
+            self.tools[self._index] = d
+        operation = DrillOperation(
+            tool=self._tool_to_index[d], point=DrillHit(x, y)
+        )
+        self.operations.append(operation)
 
     def read(self, path):
         logging.info(f"Starting drill layer importer:")

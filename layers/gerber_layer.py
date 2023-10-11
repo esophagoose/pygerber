@@ -5,12 +5,7 @@ import os
 import re
 import typing
 
-import coloredlogs
-
 import standard.gerber as gf
-
-coloredlogs.DEFAULT_LOG_FORMAT = "GerberLayer: %(asctime)s %(levelname)s %(message)s"
-coloredlogs.install(level="WARNING", format="GerberLayer: %(message)s")
 
 
 class Units(enum.Enum):
@@ -177,8 +172,8 @@ class GerberLayer:
         elif op_type in [gf.GerberFormat.REGION_START, gf.GerberFormat.REGION_END]:
             self.region = op_type == gf.GerberFormat.REGION_START
             if not self.region:
-                r = copy.deepcopy(self._regions)
-                self.collection_of_region.append(r)
+                region = copy.deepcopy(self._regions)
+                self.collection_of_region.append(region)
                 self._regions.clear()
             logging.info(f"{'START' if self.region else 'END'} Region")
         elif op_type in [gf.GerberFormat.DEPRECATED_SELECT_APERTURE]:
@@ -214,7 +209,8 @@ class GerberLayer:
         point = self.scale((float(values[0]), float(values[1])))
         if len(values) == 4:
             x, y, i, j = values
-            point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
+            point = self.scale((float(x), float(y))), self.scale(
+                (float(i), float(j)))
         aperture = None if self.region else self.apertures[self.current_aperture]
         return OperationState(
             aperture=aperture,
@@ -236,7 +232,3 @@ class GerberLayer:
         self.scalars = (pow(10, -int(decx)), pow(10, -int(decy)))
         self.sigfig_x = int(decx)
         self.sigfig_y = int(decy)
-
-
-if __name__ == "__main__":
-    GerberLayer("./testdata/osw-Edge_Cuts_v.gbr").read()
