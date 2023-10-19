@@ -9,9 +9,8 @@ import layers.gerber_layer as gl
 import layers.drill_layer as drl
 
 FILE_EXT_TO_LAYER = {
-    k: gl.GerberLayer for k in standard.gerber.FILE_EXT_TO_NAME}.update(
-    {k: drl.DrillLayer for k in standard.nc_drill.FILE_EXTENSIONS}
-)
+    k: gl.GerberLayer for k in standard.gerber.FILE_EXT_TO_NAME
+}.update({k: drl.DrillLayer for k in standard.nc_drill.FILE_EXTENSIONS})
 
 STANDARD_COLOR_SET = {
     "background": "black",

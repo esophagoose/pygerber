@@ -2,6 +2,7 @@ import logging
 import dataclasses
 import os
 import re
+import typing
 
 from standard.nc_drill import NCDrillFormat
 
@@ -63,12 +64,10 @@ class DrillLayer:
             self._tool_to_index[d] = self._index
             self._index += 1
             self.tools[self._index] = d
-        operation = DrillOperation(
-            tool=self._tool_to_index[d], point=DrillHit(x, y)
-        )
+        operation = DrillOperation(tool=self._tool_to_index[d], point=DrillHit(x, y))
         self.operations.append(operation)
 
-    def read(self, path):
+    def read(self, path) -> typing.List:
         logging.info(f"Starting drill layer importer:")
         logging.info(f"\tFile: {path}")
 
@@ -115,8 +114,9 @@ class DrillLayer:
             self.mode = op_type
             if content:
                 operation = RoutOperation(
-                    tool=self._tool_index, type=op_type, point=DrillHit.decode(
-                        content),
+                    tool=self._tool_index,
+                    type=op_type,
+                    point=DrillHit.decode(content),
                 )
                 self.operations.append(operation)
         elif op_type == NCDrillFormat.TOOL_COMMAND:
@@ -127,7 +127,8 @@ class DrillLayer:
         elif op_type == NCDrillFormat.DRILL_HIT:
             assert self.mode == NCDrillFormat.DRILL_MODE, "Must be in drill mode to hit"
             operation = DrillOperation(
-                tool=self._tool_index, point=DrillHit.decode(content),
+                tool=self._tool_index,
+                point=DrillHit.decode(content),
             )
             self.operations.append(operation)
         elif op_type == NCDrillFormat.TOOL_DOWN:
@@ -140,8 +141,9 @@ class DrillLayer:
             NCDrillFormat.CIRCULAR_COUNTERCLOCKWISE_ROUT,
         ]:
             operation = RoutOperation(
-                tool=self._tool_index, type=op_type, point=DrillHit.decode(
-                    content),
+                tool=self._tool_index,
+                type=op_type,
+                point=DrillHit.decode(content),
             )
             self.operations.append(operation)
         elif op_type in [NCDrillFormat.ABSOLUTE_UNITS, NCDrillFormat.END_OF_FILE]:
@@ -154,8 +156,7 @@ class DrillLayer:
             # Write header
             f.write(f"{NCDrillFormat.START_OF_HEADER.value}\n")
             f.write(f"{self.units}\n")
-            f.writelines([f"T{str(i).zfill(2)}C{d}\n" for i,
-                         d in self.tools.items()])
+            f.writelines([f"T{str(i).zfill(2)}C{d}\n" for i, d in self.tools.items()])
             f.write(f"{NCDrillFormat.END_OF_HEADER.value}\n")
 
             previous_op = None
