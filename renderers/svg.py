@@ -5,8 +5,10 @@ from pathlib import Path
 import svgwrite as svg
 
 import layers.gerber_layer as gl
+import layers.aperture as aperture_lib
 import layers.drill_layer as drl
 from standard.gerber import GerberFormat
+from standard.nc_drill import NCDrillFormat
 
 
 class SvgLayerRenderer:
@@ -58,15 +60,24 @@ class SvgLayerRenderer:
             point = operation.point.get()
             diameter = self._layer.tools[operation.tool]
             if isinstance(operation, drl.RoutOperation):
-                if self._drill_down:
-                    obj = svg.shapes.Line(
-                        start=self._previous_point, end=point)
+                if not self._drill_down:
+                    self._previous_point = point
+                    continue
+                if operation.type == NCDrillFormat.LINEAR_ROUT:
+                    obj = svg.shapes.Line(start=self._previous_point, end=point)
                     obj.stroke(self._color, width=diameter, linecap="round")
-                    self.canvas.add(obj)
-                self._previous_point = point
+                else:
+                    cw = int(operation.type == NCDrillFormat.CIRCULAR_CLOCKWISE_ROUT)
+                    px, py = self._previous_point
+                    obj = svg.path.Path("M{px},{py}").push_arc(
+                        point, 0, r, large_arc=True, angle_dir="+", absolute=False
+                    )
+                    obj.stroke(self._color, width=diameter, linecap="round")
+                self.canvas.add(obj)
             elif isinstance(operation, drl.DrillOperation):
-                self.canvas.add(svg.shapes.Circle(
-                    center=point, r=diameter / 2).fill(self._color))
+                self.canvas.add(
+                    svg.shapes.Circle(center=point, r=diameter / 2).fill(self._color)
+                )
             else:
                 raise ValueError(f"Invalid drill operation: {operation}")
         return self
@@ -79,30 +90,35 @@ class SvgLayerRenderer:
         drawing.add(self.canvas)
         drawing.save()
 
-    def _interpolate(self, state):
+    def _interpolate(self, state: gl.OperationState):
         height = state.aperture.dimension[0]
-        cap = "round" if state.aperture.type == gl.ApertureTemplate.CIRCLE else "square"
+        cap = "square"
+        if isinstance(state.aperture.shape, aperture_lib.ApertureCircle):
+            cap = "round"
+
         if state.interpolation == GerberFormat.INTERP_MODE_LINEAR:
-            return svg.shapes.Line(start=state.previous_point, end=state.point).stroke(
-                self._color, width=height, linecap=cap
-            )
+            line = svg.shapes.Line(start=state.previous_point, end=state.point)
+            return line.stroke(self._color, width=height, linecap=cap)
         else:
             raise NotImplementedError("INTERPOLATE", state)
 
-    def _flash_aperture(self, state):
-        if state.aperture.type == gl.ApertureTemplate.CIRCLE:
-            for diameter in state.aperture.dimension:
-                radius = diameter / 2
-                return svg.shapes.Circle(center=state.point, r=radius).fill(self._color)
-        elif state.aperture.type in [
-            gl.ApertureTemplate.RECT,
-            gl.ApertureTemplate.OBROUND,
-        ]:
-            w, h = state.aperture.dimension
-            x = state.point[0] - (w / 2)
-            y = state.point[1] - (h / 2)
-            r = h / 2 if state.aperture.type == gl.ApertureTemplate.OBROUND else 0
-            return svg.shapes.Rect(insert=(x, y), size=(w, h)).fill(self._color)
+    def _flash_aperture(self, state: gl.OperationState):
+        shape = state.aperture.shape
+        if isinstance(shape, aperture_lib.ApertureCircle):
+            return svg.shapes.Circle(center=state.point, r=shape.r).fill(self._color)
+        elif isinstance(shape, aperture_lib.ApertureRectangle):
+            size = (shape.width, shape.height)
+            x = state.point[0] - (shape.width / 2)
+            y = state.point[1] - (shape.height / 2)
+            return svg.shapes.Rect(insert=(x, y), size=size).fill(self._color)
+        elif isinstance(shape, aperture_lib.ApertureObround):
+            size = (shape.width, shape.height)
+            x = state.point[0] - (shape.width / 2)
+            y = state.point[1] - (shape.height / 2)
+            r = shape.height / 2
+            return svg.shapes.Rect(insert=(x, y), size=size, rx=r, ry=r).fill(
+                self._color
+            )
         else:
             raise NotImplementedError("FLASH", state)
 

@@ -6,6 +6,7 @@ import re
 import typing
 
 import standard.gerber as gf
+import layers.aperture as aperture_lib
 
 
 class Units(enum.Enum):
@@ -20,28 +21,8 @@ class QuadrantMode(enum.Enum):
     UNKNOWN = 3
 
 
-class ApertureTemplate(enum.Enum):
-    CIRCLE = "C"
-    RECT = "R"
-    OBROUND = "O"
-    POLYGON = "P"
-    CUSTOM = "X"
-
-    @classmethod
-    def get(cls, value):
-        if len(value) == 1:
-            return ApertureTemplate(value)
-        return ApertureTemplate.CUSTOM
-
-
-class Aperture(typing.NamedTuple):
-    index: int
-    type: ApertureTemplate
-    dimension: tuple
-
-
 class OperationState(typing.NamedTuple):
-    aperture: Aperture
+    aperture: aperture_lib.Aperture
     interpolation: gf.GerberFormat
     point: tuple
     previous_point: tuple
@@ -80,6 +61,7 @@ class GerberLayer:
         self.sigfig_y = 1
         self.operations = []
         self._regions = []
+        self.aperture_factory = aperture_lib.ApertureFactory()
         self.collection_of_region = []
 
     def read(self, raise_on_unknown_command=False):
@@ -140,9 +122,13 @@ class GerberLayer:
             self.polarity = content == "D"
             logging.info(f"Setting polarity to {self.polarity}")
         elif op_type == gf.GerberFormat.APERTURE_DEFINE:
-            aperture = self._define_aperture(content)
+            aperture = self.aperture_factory.from_aperture_define(content)
+            print(aperture.index, type(aperture.index))
             self.apertures[aperture.index] = aperture
             logging.info(f"Add aperture: {aperture.index}")
+        elif op_type == gf.GerberFormat.APERTURE_MACRO:
+            self.aperture_factory.define_macro(content)
+            logging.info(f"Processed aperture macro: {content}")
         elif op_type == gf.GerberFormat.SET_APERTURE:
             self.current_aperture = int(data[1:])
             logging.info(f"Current aperture set to: {self.current_aperture}")
@@ -160,15 +146,13 @@ class GerberLayer:
             gf.GerberFormat.OPERATION_MOVE,
             gf.GerberFormat.OPERATION_INTERP,
         ]:
-            op = self._run_operation(op_type, content)
+            op = self._run_operation(content)
             logging.info(f"Operation: {op_type}, point: {self.current_point}")
             self.current_point = op.point
             if self.region:
                 self._regions.append((op_type, op))
             else:
                 self.operations.append((op_type, op))
-        elif op_type == gf.GerberFormat.APERTURE_MACRO:
-            logging.warning("Unhandled aperture define")
         elif op_type in [gf.GerberFormat.REGION_START, gf.GerberFormat.REGION_END]:
             self.region = op_type == gf.GerberFormat.REGION_START
             if not self.region:
@@ -192,16 +176,7 @@ class GerberLayer:
         y = round(point[1] * self.scalars[1], self.sigfig_y)
         return x, y
 
-    def _define_aperture(self, line):
-        pattern = re.compile(r"^D(\d+)([A-z]+),([\d.X]+)$")
-        aperture_id, shape, dimensions = pattern.findall(line)[0]
-        return Aperture(
-            index=int(aperture_id),
-            type=ApertureTemplate.get(shape),
-            dimension=[float(d) for d in dimensions.split("X")],
-        )
-
-    def _run_operation(self, op_type: gf.GerberFormat, content: str):
+    def _run_operation(self, content: str):
         values = re.findall(r"[A-Z]([\+|-]*\d+)", content)
         assert len(values) in [2, 4], f"Invalid operation parsing: {content}"
         assert self.region or self.current_aperture, "Invalid operation: no aperture!"
@@ -209,11 +184,10 @@ class GerberLayer:
         point = self.scale((float(values[0]), float(values[1])))
         if len(values) == 4:
             x, y, i, j = values
-            point = self.scale((float(x), float(y))), self.scale(
-                (float(i), float(j)))
-        aperture = None if self.region else self.apertures[self.current_aperture]
+            point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
+        aperture = self.apertures[self.current_aperture]
         return OperationState(
-            aperture=aperture,
+            aperture=aperture if not self.region else None,
             polarity=self.polarity,
             units=self.units,
             quadrant_mode=self.quadrant_mode,
