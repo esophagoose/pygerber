@@ -1,13 +1,13 @@
-import os
-import pytest
 import logging
+import os
 import tempfile
 
-import layers.gerber_layer as gl
-import layers.drill_layer as drl
-import standard.nc_drill as ds
+import pytest
 
+import layers.drill_layer as drl
+import layers.gerber_layer as gl
 import renderers.svg as renderer
+import standard.nc_drill as ds
 
 logging.basicConfig(level=logging.DEBUG)
 

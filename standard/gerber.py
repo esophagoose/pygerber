@@ -1,5 +1,5 @@
 import enum
-
+from typing import NamedTuple
 
 FILE_EXT_TO_NAME = {
     ".gbr": "generic",
@@ -71,3 +71,18 @@ class GerberFormat(enum.Enum):
             return GerberFormat(command[-3:]), command[:-3]
         else:
             return GerberFormat(command[:3]), command[3:]
+
+
+class Point(NamedTuple):
+    x: float
+    y: float
+
+    @classmethod
+    def from_text(cls, text: str):
+        if not text.startswith("X") or "Y" not in text:
+            raise ValueError(f"Invalid coordinate: {text}")
+        x, y = [float(i) for i in text[1:].split("Y")]
+        return cls(x, y)
+
+    def to_text(self):
+        return f"X{self.x}Y{self.y}"

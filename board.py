@@ -3,10 +3,10 @@ import os
 import tempfile
 import zipfile
 
+import layers.drill_layer as drl
+import layers.gerber_layer as gl
 import standard.gerber
 import standard.nc_drill
-import layers.gerber_layer as gl
-import layers.drill_layer as drl
 
 FILE_EXT_TO_LAYER = {
     k: gl.GerberLayer for k in standard.gerber.FILE_EXT_TO_NAME

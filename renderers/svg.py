@@ -1,14 +1,13 @@
-import math
 import sys
 from pathlib import Path
 
 import svgwrite as svg
 
-import layers.gerber_layer as gl
-import layers.aperture as aperture_lib
-import layers.drill_layer as drl
-from standard.gerber import GerberFormat
-from standard.nc_drill import NCDrillFormat
+import pygerber.layers.aperture as aperture_lib
+import pygerber.layers.drill_layer as drl
+import pygerber.layers.gerber_layer as gl
+from pygerber.standard.gerber import GerberFormat
+from pygerber.standard.nc_drill import NCDrillFormat
 
 
 class SvgLayerRenderer:
@@ -48,7 +47,7 @@ class SvgLayerRenderer:
             elif op_type == GerberFormat.OPERATION_MOVE:
                 continue  # moves are no-ops
             else:
-                raise NotImplementedError(op_type, state)
+                raise NotImplementedError(op_type)
             self.canvas.add(obj)
         return self
 
@@ -100,7 +99,7 @@ class SvgLayerRenderer:
             line = svg.shapes.Line(start=state.previous_point, end=state.point)
             return line.stroke(self._color, width=height, linecap=cap)
         else:
-            raise NotImplementedError("INTERPOLATE", state)
+            raise NotImplementedError(state.interpolation)
 
     def _flash_aperture(self, state: gl.OperationState):
         shape = state.aperture.shape
@@ -119,8 +118,11 @@ class SvgLayerRenderer:
             return svg.shapes.Rect(insert=(x, y), size=size, rx=r, ry=r).fill(
                 self._color
             )
+        elif isinstance(shape, aperture_lib.ApertureOutline):
+            color = self.foreground if state.polarity else self.background
+            return svg.shapes.Polyline(points=shape.points).fill(color)
         else:
-            raise NotImplementedError("FLASH", state)
+            raise NotImplementedError(shape)
 
     def _render_region(self, region):
         points = []
@@ -135,4 +137,4 @@ class SvgLayerRenderer:
 
 if __name__ == "__main__":
     layer = gl.GerberLayer(sys.argv[1])
-    SvgLayerRenderer(layer).save("./output_files/")
+    SvgLayerRenderer(layer).save("./outputs/")
