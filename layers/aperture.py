@@ -1,11 +1,11 @@
-import typing
 import enum
-import re
 import logging
 import math
+import re
+from typing import Any, Dict, List, NamedTuple, Tuple
 
 
-class ApertureCircle(typing.NamedTuple):
+class ApertureCircle(NamedTuple):
     diameter: float
     cx: float = 0
     cy: float = 0
@@ -15,7 +15,7 @@ class ApertureCircle(typing.NamedTuple):
         return self.diameter / 2
 
 
-class ApertureRectangle(typing.NamedTuple):
+class ApertureRectangle(NamedTuple):
     width: float
     height: float
     cx: float = 0
@@ -23,14 +23,14 @@ class ApertureRectangle(typing.NamedTuple):
     rotation: float = 0
 
 
-class ApertureObround(typing.NamedTuple):
+class ApertureObround(NamedTuple):
     width: float
     height: float
     cx: float = 0
     cy: float = 0
 
 
-class AperturePolygon(typing.NamedTuple):
+class AperturePolygon(NamedTuple):
     diameter: float
     vertices: int
     rotation: float = 0
@@ -38,8 +38,8 @@ class AperturePolygon(typing.NamedTuple):
     cy: float = 0
 
 
-class ApertureOutline(typing.NamedTuple):
-    points: typing.Tuple[int]
+class ApertureOutline(NamedTuple):
+    points: Tuple[int]
     rotation: float = 0
 
 
@@ -54,16 +54,18 @@ class MacroPrimitive(enum.Enum):
     THERMAL = 7
 
 
-class Aperture(typing.NamedTuple):
+class Aperture(NamedTuple):
     index: str
     exposure: bool
-    shape: typing.Any
+    shape: Any
     rotation: float = 0
     hole: float = 0
+    comments: List[str] = []
 
 
-class Macro(typing.NamedTuple):
-    statements: typing.List[tuple[MacroPrimitive, str]]
+class Macro(NamedTuple):
+    name: str
+    statements: List[Tuple[MacroPrimitive, str]]
 
     def validate_values(self, values):
         data = [text for _, text in self.statements]
@@ -72,7 +74,7 @@ class Macro(typing.NamedTuple):
         error = f"Invalid values! Got {len(values)}, expected {count}"
         assert count == len(values), error
 
-    def _parse(self, values: typing.List[float]):
+    def _parse(self, values: List[float]):
         parsed = []
         for p, statement in self.statements:
             for i, value in enumerate(values):
@@ -80,14 +82,15 @@ class Macro(typing.NamedTuple):
             parsed.append((p, [float(v) for v in statement.split(",")]))
         return parsed
 
-    def generate_aperture(self, index: int, values: typing.List[float]):
+    def generate_aperture(self, index: int, values: List[float], comments):
         self.validate_values(values)
-        shape = None
-        exposure = True
-        rotation = 0
+        shapes = []
         for primitive, statement in self._parse(values):
+            shape = None
+            exposure = True
+            rotation = 0
             if primitive == MacroPrimitive.CIRCLE:
-                exposure, diameter, cx, cy, _ = statement
+                exposure, diameter, cx, cy, rotation = statement
                 shape = ApertureCircle(
                     diameter=diameter,
                     cx=cx,
@@ -116,8 +119,11 @@ class Macro(typing.NamedTuple):
                 exposure = bool(statement[0])
                 verticies = statement[1] + 1  # initial point isn't counted
                 rotation = statement[-1]
-                points = statement[2:-1]
-                assert len(points) == 2 * verticies, "Malformed command"
+                points = [
+                    (statement[i], statement[i + 1])
+                    for i in range(2, len(statement) - 1, 2)
+                ]
+                assert len(points) == verticies, "Malformed command"
                 shape = ApertureOutline(points=points, rotation=rotation)
             elif primitive == MacroPrimitive.POLYGON:
                 exposure, verticies, cx, cy, d, rotation = statement
@@ -135,17 +141,58 @@ class Macro(typing.NamedTuple):
                 raise NotImplementedError(MacroPrimitive.THERMAL)
             else:
                 raise NotImplementedError(statement)
-        return Aperture(
-            index=index, exposure=exposure, shape=shape, rotation=rotation, hole=0
-        )
+            shapes.append(shape)
+        return Aperture(index, exposure, shapes, rotation, 0, comments)
+
+    def from_aperture(self, aperture: Aperture):
+        for i, shape in enumerate(aperture.shape):
+            primitive, statement = self.statements[i]
+            variables = set(re.findall(r"\$\d+", statement))
+            variable_indicies = []
+            for variable in sorted(variables):
+                variable_indicies.append(statement.split(",").index(variable))
+            if primitive == MacroPrimitive.CIRCLE:
+                values = [
+                    aperture.exposure,
+                    shape.diameter,
+                    shape.cx,
+                    shape.cy,
+                    aperture.rotation,
+                ]
+            elif primitive == MacroPrimitive.VECTOR_LINE:
+                raise NotImplementedError(MacroPrimitive.VECTOR_LINE)
+            elif primitive == MacroPrimitive.CENTER_LINE:
+                raise NotImplementedError(MacroPrimitive.CENTER_LINE)
+            elif primitive == MacroPrimitive.OUTLINE:
+                values = [aperture.exposure, len(shape.points) - 1]
+                values.extend([x for p in shape.points for x in p])
+                values.append(aperture.rotation)
+            elif primitive == MacroPrimitive.POLYGON:
+                values = [
+                    aperture.exposure,
+                    shape.vertices,
+                    shape.cx,
+                    shape.cy,
+                    shape.diameter,
+                    aperture.rotation,
+                ]
+            elif primitive == MacroPrimitive.MOIRE:
+                raise NotImplementedError(MacroPrimitive.MOIRE)
+            elif primitive == MacroPrimitive.THERMAL:
+                raise NotImplementedError(MacroPrimitive.THERMAL)
+            else:
+                raise NotImplementedError(statement)
+            parsed = "X".join([str(values[i]) for i in variable_indicies])
+            return f"{self.name},{parsed}"
 
 
 class ApertureFactory:
     def __init__(self):
-        self.macros: typing.Dict[str, Macro] = {}
+        self.macros: Dict[str, Macro] = {}
+        self._macro_map: Dict[str, int] = {}
 
-    def from_aperture_define(self, statement):
-        def pad_optional_params(params: typing.List[float], count: int):
+    def from_aperture_define(self, statement, comments=[]):
+        def pad_optional_params(params: List[float], count: int):
             return params + [0] * (count - len(params))
 
         pattern = re.compile(r"^D(\d+)([A-z]+),([\d.X]+)$")
@@ -154,7 +201,8 @@ class ApertureFactory:
         hole = 0
         if shape in self.macros:
             macro = self.macros[shape]
-            return macro.generate_aperture(int(aperture_id), parameters)
+            self._macro_map[int(aperture_id)] = shape
+            return macro.generate_aperture(int(aperture_id), parameters, comments)
         elif shape == "C":
             diameter, hole = pad_optional_params(parameters, 2)
             shape = ApertureCircle(diameter=diameter)
@@ -170,8 +218,29 @@ class ApertureFactory:
         else:
             raise ValueError(f"Invalid aperture shape: {statement}")
         return Aperture(
-            index=int(aperture_id), exposure=True, shape=shape, rotation=0, hole=hole
+            index=int(aperture_id),
+            exposure=True,
+            shape=shape,
+            rotation=0,
+            hole=hole,
+            comments=comments,
         )
+
+    def to_aperture_define(self, aperture: Aperture) -> str:
+        if isinstance(aperture.shape, list):
+            # Handling macros
+            shape = self._macro_map[int(aperture.index)]
+            macro = self.macros[shape]
+            define = macro.from_aperture(aperture)
+            return f"ADD{aperture.index}{define}"
+        else:
+            shape = type(aperture.shape).__name__.replace("Aperture", "")[0]
+            params = "X".join(
+                str(p)
+                for p in aperture.shape._asdict().values()
+                if isinstance(p, float) and p != 0
+            )
+            return f"ADD{aperture.index}{shape},{params}"
 
     def define_macro(self, statement):
         data = statement.split("*\n")
@@ -187,4 +256,11 @@ class ApertureFactory:
                 continue
             assert row[1] == ",", "Malformed macro"
             statements.append((primitive, row[2:]))
-        self.macros[name] = Macro(statements)
+        self.macros[name] = Macro(name, statements)
+
+    def macro_to_str(self, macro: Macro) -> str:
+        statement = f"%AM{macro.name}*\n"
+        for primitive, params in macro.statements:
+            statement += f"{primitive.value},{params}*\n"
+        statement += "%"
+        return statement
