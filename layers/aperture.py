@@ -23,11 +23,17 @@ class ApertureRectangle(NamedTuple):
     rotation: float = 0
 
 
-class ApertureObround(NamedTuple):
+class ApertureRoundedRectangle(NamedTuple):
     width: float
     height: float
+    radius: float
     cx: float = 0
     cy: float = 0
+
+    @classmethod
+    def from_obround(cls, width, height, cx=0, cy=0):
+        radius = min(width, height) / 2
+        return cls(width, height, radius, cx, cy)
 
 
 class AperturePolygon(NamedTuple):
@@ -41,6 +47,15 @@ class AperturePolygon(NamedTuple):
 class ApertureOutline(NamedTuple):
     points: Tuple[int]
     rotation: float = 0
+
+
+APERTURES = [
+    ApertureCircle,
+    ApertureRectangle,
+    ApertureRoundedRectangle,
+    AperturePolygon,
+    ApertureOutline,
+]
 
 
 class MacroPrimitive(enum.Enum):
@@ -211,7 +226,7 @@ class ApertureFactory:
             shape = ApertureRectangle(width=width, height=height)
         elif shape == "O":
             width, height, hole = pad_optional_params(parameters, 3)
-            shape = ApertureObround(width=width, height=height)
+            shape = ApertureRoundedRectangle.from_obround(width=width, height=height)
         elif shape == "P":
             d, verticies, rot, hole = pad_optional_params(parameters, 4)
             shape = AperturePolygon(diameter=d, verticies=verticies, rotation=rot)

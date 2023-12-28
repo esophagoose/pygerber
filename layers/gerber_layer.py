@@ -117,7 +117,7 @@ class GerberLayer:
             logging.info(f"Switching quadrant mode to: {op_type}")
             self.quadrant_mode = op_type
         elif op_type == gf.GerberFormat.FORMAT:
-            self._set_scalars(data)
+            self._set_format_spec(data)
             logging.info(f"Got decimal places: {self.scalars}")
         elif op_type == gf.GerberFormat.LOAD_POLARITY:
             self.polarity = content == "D"
@@ -208,22 +208,9 @@ class GerberLayer:
                     write_line(gf.GerberFormat.COMMENT.value + comment, f)
                 statement = self.aperture_factory.to_aperture_define(aperture)
                 write_line(statement, f, True)
-            # import code
-
-            # code.interact(local=locals())
             polarity = gf.GerberFormat.LOAD_POLARITY.value
             polarity += "D" if state.polarity else "C"
             write_line(polarity, f, True)
-            # return OperationState(
-            #     aperture=aperture if not self.region else None,
-            #     polarity=self.polarity,
-            #     units=self.units,
-            #     quadrant_mode=self.quadrant_mode,
-            #     scalars=self.scalars,
-            #     interpolation=self.interpolation,
-            #     previous_point=self.current_point,
-            #     point=point,
-            # )
             for op_type, op in self.operations:
                 if op.aperture and op.aperture != current_aperture:
                     write_line(f"D{op.aperture.index}", f)
@@ -246,6 +233,9 @@ class GerberLayer:
             x, y, i, j = values
             point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
         aperture = self.apertures[self.current_aperture]
+        return self.get_operation_state(aperture, point)
+
+    def get_operation_state(self, aperture, point):
         return OperationState(
             aperture=aperture if not self.region else None,
             polarity=self.polarity,
@@ -257,9 +247,9 @@ class GerberLayer:
             point=point,
         )
 
-    def _set_scalars(self, text):
+    def _set_format_spec(self, data):
         regex = r"FSLAX(\d)(\d)Y(\d)(\d)"
-        match = re.search(regex, text)
+        match = re.search(regex, data)
         if not match:
             raise RuntimeError("No decimal places available!")
         intx, decx, inty, decy = match.groups()

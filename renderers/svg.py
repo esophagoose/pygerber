@@ -110,11 +110,11 @@ class SvgLayerRenderer:
             x = state.point[0] - (shape.width / 2)
             y = state.point[1] - (shape.height / 2)
             return svg.shapes.Rect(insert=(x, y), size=size).fill(self._color)
-        elif isinstance(shape, aperture_lib.ApertureObround):
+        elif isinstance(shape, aperture_lib.ApertureRoundedRectangle):
             size = (shape.width, shape.height)
             x = state.point[0] - (shape.width / 2)
             y = state.point[1] - (shape.height / 2)
-            r = shape.height / 2
+            r = shape.radius
             return svg.shapes.Rect(insert=(x, y), size=size, rx=r, ry=r).fill(
                 self._color
             )
