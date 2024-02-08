@@ -4,31 +4,28 @@ This library provides a simple and elegant parser for Gerber and NC Drill files.
 # File Structure
 ```
 .
-├── api
-│   └── gerber_builder.py
-├── layers
+├── pygerber
 │   ├── aperture.py
 │   ├── drill_layer.py
-│   └── gerber_layer.py
-├── renderers
-|   |   # Renders a Gerber file as an SVG
-│   └── svg.py
-├── standard
-|   |   # Enums of Gerber file format
-│   ├── gerber.py
-|   |   # Enums of NC Drill file format
-│   └── nc_drill.py
+│   ├── gerber_layer.py
+│   └── renderers
+│   │   |   # Renders a Gerber file as an SVG
+│   │   └── svg.py
+│   └── standards
+│       │   # Enums of Gerber file format
+│       ├── gerber.py
+│       |   # Enums of NC Drill file format
+│       └── nc_drill.py
 └── tests
     |   # All unit tests for this package
     └── test_package.py  
 ```
 
 # Features
-- [ ] Gerber X2 file parser
+- [-] Gerber X2 file parser
     - [x] Reading gerber layer
     - [x] Writing gerber layer
-    - [ ] API for building gerber files
-    - [ ] SVG rendering
+    - [-] SVG rendering
         - [x] Render flash operation
         - [x] Render linear interpolations
         - [ ] Render circular interpolations
