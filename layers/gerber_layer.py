@@ -11,12 +11,17 @@ import standard.gerber as gf
 
 
 class Units(enum.Enum):
+    """Enums of unit options in Gerbers (millimeters / inches)"""
     MM = "MM"
     INCH = "IN"
     UNKNOWN = "XX"
 
 
 class OperationState(typing.NamedTuple):
+    """
+    Represents the state of the Gerber files at an operation.
+    Gerber files are read sequentially so when an operation is perform the state of the parameters needs to be saved
+    """
     aperture: aperture_lib.Aperture
     interpolation: gf.GerberFormat
     point: tuple
@@ -28,18 +33,10 @@ class OperationState(typing.NamedTuple):
 
 
 class GerberLayer:
-    def __init__(self, filepath):
-        filename, ext = os.path.splitext(filepath)
-        self.filename = os.path.basename(filename)
-        extension = ext.lower()
-        if extension not in gf.FILE_EXT_TO_NAME:
-            raise ValueError(f"Unknown file: {filepath}")
-        self.file_type = gf.FILE_EXT_TO_NAME[extension]
-
-        logging.info(f"Starting gerber layer importer:")
-        logging.info(f"\tFile: {filepath}")
-        logging.info(f"\tType: {self.file_type.upper()}")
-
+    """
+    Represents a Gerber layer or one file in the Gerber format
+    """
+    def __init__(self):
         self._in_header = True
         self.header = []
         self.current_aperture = None
@@ -47,7 +44,6 @@ class GerberLayer:
         self.attributes = {}
         self.region = False
         self.polarity = None
-        self.path = filepath
         self.apertures = {}
         self.current_point = None
         self.comments = []
@@ -61,9 +57,19 @@ class GerberLayer:
         self.aperture_factory = aperture_lib.ApertureFactory()
         self.collection_of_region = []
 
-    def read(self, raise_on_unknown_command=False):
+    def read(self, filepath, raise_on_unknown_command=False):
+        filename, ext = os.path.splitext(filepath)
+        filename = os.path.basename(filename)
+        extension = ext.lower()
+        if extension not in gf.FILE_EXT_TO_NAME:
+            raise ValueError(f"Unknown file: {filepath}")
+        file_type = gf.FILE_EXT_TO_NAME[extension]
+
+        logging.info(f"Starting gerber layer importer:")
+        logging.info(f"\tFile: {filepath}")
+        logging.info(f"\tType: {file_type.upper()}")
         multiline = False
-        with open(self.path, "r") as f:
+        with open(filepath, "r") as f:
             buffer = ""
             for index, line in enumerate(f.readlines()):
                 if not line.strip():

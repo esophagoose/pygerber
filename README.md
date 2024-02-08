@@ -1,6 +1,28 @@
 # Python Gerber Library
 This library provides a simple and elegant parser for Gerber and NC Drill files. It's written in pure Python and supports all Gerber commands, including most deprecated ones.
 
+# File Structure
+```
+.
+├── api
+│   └── gerber_builder.py
+├── layers
+│   ├── aperture.py
+│   ├── drill_layer.py
+│   └── gerber_layer.py
+├── renderers
+|   |   # Renders a Gerber file as an SVG
+│   └── svg.py
+├── standard
+|   |   # Enums of Gerber file format
+│   ├── gerber.py
+|   |   # Enums of NC Drill file format
+│   └── nc_drill.py
+└── tests
+    |   # All unit tests for this package
+    └── test_package.py  
+```
+
 # Features
 - [ ] Gerber X2 file parser
     - [x] Reading gerber layer
@@ -17,9 +39,7 @@ This library provides a simple and elegant parser for Gerber and NC Drill files.
     - [ ] API for rout operations 
     - [ ] SVG rendering of drill files
         - [x] Drill operations
-        - [ ] Rout operations 
-
-
+        - [ ] Rout operations
 
 # Running Unit Tests
 Place gerber files in the `testdata` folder and run the unit tests:
