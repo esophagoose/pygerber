@@ -3,7 +3,7 @@ import logging
 import re
 import typing
 
-from standard.nc_drill import NCDrillFormat
+from pygerber.standard.nc_drill import NCDrillFormat
 
 
 @dataclasses.dataclass(frozen=True)

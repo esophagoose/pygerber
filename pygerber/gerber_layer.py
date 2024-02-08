@@ -3,11 +3,10 @@ import enum
 import logging
 import os
 import re
-import typing
-from typing import List, Tuple
+from typing import List, NamedTuple, Tuple
 
-import layers.aperture as aperture_lib
-import standard.gerber as gf
+import pygerber.layers.aperture as aperture_lib
+import pygerber.standard.gerber as gf
 
 
 class Units(enum.Enum):
@@ -18,7 +17,7 @@ class Units(enum.Enum):
     UNKNOWN = "XX"
 
 
-class OperationState(typing.NamedTuple):
+class OperationState(NamedTuple):
     """
     Represents the state of the Gerber files at an operation.
     Gerber files are read sequentially so when an operation is perform the state of the parameters needs to be saved
@@ -59,20 +58,19 @@ class GerberLayer:
         self._regions = []
         self.aperture_factory = aperture_lib.ApertureFactory()
         self.collection_of_region = []
+        self._set_standard_layer()
 
-    def read(self, filepath, raise_on_unknown_command=False):
-        filename, ext = os.path.splitext(filepath)
-        filename = os.path.basename(filename)
-        extension = ext.lower()
+    def read(self, path, raise_on_unknown_command=False):
+        _, extension = os.path.splitext(path.lower())
         if extension not in gf.FILE_EXT_TO_NAME:
-            raise ValueError(f"Unknown file: {filepath}")
+            raise ValueError(f"Unknown file: {path}")
         file_type = gf.FILE_EXT_TO_NAME[extension]
 
         logging.info(f"Starting gerber layer importer:")
-        logging.info(f"\tFile: {filepath}")
+        logging.info(f"\tFile: {path}")
         logging.info(f"\tType: {file_type.upper()}")
         multiline = False
-        with open(filepath, "r") as f:
+        with open(path, "r") as f:
             buffer = ""
             for index, line in enumerate(f.readlines()):
                 if not line.strip():
@@ -265,3 +263,21 @@ class GerberLayer:
         self.scalars = (pow(10, -int(decx)), pow(10, -int(decy)))
         self.integer_digits = gf.Point(int(intx), int(inty))
         self.decimal_digits = gf.Point(int(decx), int(decy))
+
+    def _set_standard_layer(self):
+        self.integer_digits = gf.Point(4, 4)
+        self.decimal_digits = gf.Point(6, 6)
+        self.scalars = (pow(10, -6), pow(10, -6))
+        self.quadrant_mode = gf.GerberFormat.QUADMODE_MULTI
+        self.units = gf.GerberFormat.UNITS
+        self.interpolation = gf.GerberFormat.INTERP_MODE_LINEAR
+        self.polarity = True
+
+    def flash(
+        self, aperture: aperture_lib.APERTURES, position: Tuple[float, float]
+    ) -> None:
+        if aperture not in self.apertures:
+            index = len(self.apertures) + 1
+            self.apertures[index] = aperture
+        state = self.get_operation_state(aperture, position)
+        self.operations.append((gf.GerberFormat.OPERATION_FLASH, state))

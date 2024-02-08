@@ -1,11 +1,9 @@
 import sys
-from pathlib import Path
-
-import svgwrite as svg
 
 import pygerber.layers.aperture as aperture_lib
 import pygerber.layers.drill_layer as drl
 import pygerber.layers.gerber_layer as gl
+import svgwrite as svg
 from pygerber.standard.gerber import GerberFormat
 from pygerber.standard.nc_drill import NCDrillFormat
 
@@ -33,7 +31,7 @@ class SvgLayerRenderer:
             raise ValueError(f"Invalid layer type: {type(layer)}")
 
     def add_gerber_layer(self, layer: gl.GerberLayer):
-        operations, regions = layer.read()
+        operations, regions = layer.operations, layer.collection_of_region
         for region in regions:
             obj = self._render_region(region)
             self.canvas.add(obj)
@@ -81,8 +79,7 @@ class SvgLayerRenderer:
                 raise ValueError(f"Invalid drill operation: {operation}")
         return self
 
-    def save(self, output_folder):
-        filepath = Path(output_folder) / Path(f"{self._layer.filename}.svg")
+    def save(self, filepath: str):
         drawing = svg.Drawing(filepath, profile="tiny")
         drawing.viewbox(width=50, height=50)
         # self.canvas.scale(1, -1)
@@ -102,7 +99,7 @@ class SvgLayerRenderer:
             raise NotImplementedError(state.interpolation)
 
     def _flash_aperture(self, state: gl.OperationState):
-        shape = state.aperture.shape
+        shape = state.aperture
         if isinstance(shape, aperture_lib.ApertureCircle):
             return svg.shapes.Circle(center=state.point, r=shape.r).fill(self._color)
         elif isinstance(shape, aperture_lib.ApertureRectangle):

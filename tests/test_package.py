@@ -4,10 +4,10 @@ import tempfile
 
 import pytest
 
-import layers.drill_layer as drl
-import layers.gerber_layer as gl
-import renderers.svg as renderer
-import standard.nc_drill as ds
+import pygerber.drill_layer as drl
+import pygerber.gerber_layer as gl
+import pygerber.renderers.svg as renderer
+import pygerber.standard.nc_drill as ds
 
 logging.basicConfig(level=logging.DEBUG)
 
