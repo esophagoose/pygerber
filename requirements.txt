@@ -1,1 +1,2 @@
 pytest
+svgwrite==1.4.3

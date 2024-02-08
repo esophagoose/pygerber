@@ -1,11 +1,12 @@
 import sys
 
-import pygerber.layers.aperture as aperture_lib
-import pygerber.layers.drill_layer as drl
-import pygerber.layers.gerber_layer as gl
 import svgwrite as svg
-from pygerber.standard.gerber import GerberFormat
-from pygerber.standard.nc_drill import NCDrillFormat
+
+import pygerber.aperture as aperture_lib
+import pygerber.drill_layer as drl
+import pygerber.gerber_layer as gl
+from pygerber.standards.gerber import GerberFormat
+from pygerber.standards.nc_drill import NCDrillFormat
 
 
 class SvgLayerRenderer:
@@ -87,9 +88,10 @@ class SvgLayerRenderer:
         drawing.save()
 
     def _interpolate(self, state: gl.OperationState):
-        height = state.aperture.dimension[0]
+        height = 10000
         cap = "square"
         if isinstance(state.aperture.shape, aperture_lib.ApertureCircle):
+            height = state.aperture.shape.diameter
             cap = "round"
 
         if state.interpolation == GerberFormat.INTERP_MODE_LINEAR:
@@ -99,7 +101,7 @@ class SvgLayerRenderer:
             raise NotImplementedError(state.interpolation)
 
     def _flash_aperture(self, state: gl.OperationState):
-        shape = state.aperture
+        shape = state.aperture.shape
         if isinstance(shape, aperture_lib.ApertureCircle):
             return svg.shapes.Circle(center=state.point, r=shape.r).fill(self._color)
         elif isinstance(shape, aperture_lib.ApertureRectangle):
@@ -124,7 +126,8 @@ class SvgLayerRenderer:
             elif op_type != GerberFormat.OPERATION_INTERP:
                 raise ValueError(f"Invalid region operation: {op_type}")
             points.append(state.point)
-        return svg.shapes.Polyline(points=points, fill=self._color)
+        color = self.foreground if state.polarity else self.background
+        return svg.shapes.Polyline(points=points, fill=color)
 
 
 if __name__ == "__main__":

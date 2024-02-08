@@ -5,8 +5,8 @@ import os
 import re
 from typing import List, NamedTuple, Tuple
 
-import pygerber.layers.aperture as aperture_lib
-import pygerber.standard.gerber as gf
+import pygerber.aperture as aperture_lib
+import pygerber.standards.gerber as gf
 
 
 class Units(enum.Enum):
@@ -32,6 +32,11 @@ class OperationState(NamedTuple):
     scalars: tuple
     units: Units
 
+class GerberLayerBaseException(Exception):
+    pass
+
+class UnknownApertureError(GerberLayerBaseException):
+    pass
 
 class GerberLayer:
     """
@@ -172,7 +177,7 @@ class GerberLayer:
             logging.info(f"{'START' if self.region else 'END'} Region")
         elif op_type in [gf.GerberFormat.DEPRECATED_SELECT_APERTURE]:
             self._process(content, raise_on_unknown_command)  # no-op
-        elif op_type in [gf.GerberFormat.DEPRECATED_PROGRAM_STOP]:
+        elif op_type in [gf.GerberFormat.DEPRECATED_PROGRAM_STOP, gf.GerberFormat.DEPRECATED_ABSOLUTE_NOTATION]:
             pass  # no-op
         elif op_type == gf.GerberFormat.END_OF_FILE:
             logging.info("End of file command.")
@@ -239,7 +244,12 @@ class GerberLayer:
         if len(values) == 4:
             x, y, i, j = values
             point = self.scale((float(x), float(y))), self.scale((float(i), float(j)))
-        aperture = self.apertures[self.current_aperture]
+        if self.region:
+            return self.get_operation_state(None, point)
+
+        aperture = self.apertures.get(self.current_aperture)
+        if aperture is None:
+            raise UnknownApertureError(f"Unknown aperture: {self.current_aperture}!")
         return self.get_operation_state(aperture, point)
 
     def get_operation_state(self, aperture, point):

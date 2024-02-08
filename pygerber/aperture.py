@@ -23,7 +23,6 @@ class ApertureRectangle(NamedTuple):
     cx: float = 0
     cy: float = 0
     rotation: float = 0
-    hole: float = 0
 
     @classmethod
     def from_obround(cls, width, height, cx=0, cy=0, rotation=0):
