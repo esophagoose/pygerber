@@ -12,6 +12,7 @@ import standard.gerber as gf
 
 class Units(enum.Enum):
     """Enums of unit options in Gerbers (millimeters / inches)"""
+
     MM = "MM"
     INCH = "IN"
     UNKNOWN = "XX"
@@ -22,6 +23,7 @@ class OperationState(typing.NamedTuple):
     Represents the state of the Gerber files at an operation.
     Gerber files are read sequentially so when an operation is perform the state of the parameters needs to be saved
     """
+
     aperture: aperture_lib.Aperture
     interpolation: gf.GerberFormat
     point: tuple
@@ -36,6 +38,7 @@ class GerberLayer:
     """
     Represents a Gerber layer or one file in the Gerber format
     """
+
     def __init__(self):
         self._in_header = True
         self.header = []
