@@ -22,10 +22,10 @@ This library provides a simple and elegant parser for Gerber and NC Drill files.
 ```
 
 # Features
-- [-] Gerber X2 file parser
+- [ ] Gerber X2 file parser
     - [x] Reading gerber layer
     - [x] Writing gerber layer
-    - [-] SVG rendering
+    - [ ] SVG rendering
         - [x] Render flash operation
         - [x] Render linear interpolations
         - [ ] Render circular interpolations
