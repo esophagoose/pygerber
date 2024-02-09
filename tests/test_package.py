@@ -23,7 +23,7 @@ class TestPythonGerber:
         layer.read(f"./testdata/{filename}", raise_on_unknown_command=True)
 
     @pytest.mark.parametrize("filename", GERBER_FILES)
-    def test_renderer(self, filename):
+    def test_gerber_layer_to_svg(self, filename):
         layer = gl.GerberLayer()
         layer.read(f"./testdata/{filename}")
         renderer.SvgLayerRenderer(layer)
@@ -32,6 +32,12 @@ class TestPythonGerber:
     def test_drill_layer_read(self, filename):
         layer = drl.DrillLayer()
         layer.read(f"./testdata/{filename}")
+
+    @pytest.mark.parametrize("filename", DRILL_FILES)
+    def test_drill_layer_to_svg(self, filename):
+        layer = drl.DrillLayer()
+        layer.read(f"./testdata/{filename}")
+        renderer.SvgLayerRenderer(layer)
 
     def test_drill_layer_write(self):
         layer = drl.DrillLayer()

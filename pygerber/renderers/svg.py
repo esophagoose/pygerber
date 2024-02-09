@@ -71,6 +71,7 @@ class SvgLayerRenderer:
                         point, 0, r, large_arc=True, angle_dir="+", absolute=False
                     )
                     obj.stroke(self._color, width=diameter, linecap="round")
+                    raise NotImplementedError(operation.type)
                 self.canvas.add(obj)
             elif isinstance(operation, drl.DrillOperation):
                 self.canvas.add(
