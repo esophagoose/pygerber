@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import re
-import typing
+from typing import List, Tuple
 
 from pygerber.standards.nc_drill import NCDrillFormat
 
@@ -47,6 +47,9 @@ class ToolOperation:
     down: bool
 
 
+OPERATION_TYPES = [DrillOperation, RoutOperation, ToolOperation]
+
+
 class DrillLayer:
     def __init__(self):
         self.tools = {}
@@ -58,15 +61,33 @@ class DrillLayer:
         self._tool_to_index = {}
         self._index = 0
 
-    def add_hole(self, x: float, y: float, d: float):
-        if d not in self._tool_to_index:
-            self._tool_to_index[d] = self._index
+    def add_hole(self, x: float, y: float, diameter: float):
+        if diameter not in self._tool_to_index:
+            self._tool_to_index[diameter] = self._index
             self._index += 1
-            self.tools[self._index] = d
-        operation = DrillOperation(tool=self._tool_to_index[d], point=DrillHit(x, y))
+            self.tools[self._index] = diameter
+        operation = DrillOperation(self._tool_to_index[diameter], DrillHit(x, y))
         self.operations.append(operation)
 
-    def read(self, path) -> typing.List:
+    def add_rout(
+        self,
+        points: List[Tuple[float, float]],
+        diameter: float,
+        interpolation=NCDrillFormat.LINEAR_ROUT,
+    ):
+        if diameter not in self._tool_to_index:
+            self._tool_to_index[diameter] = self._index
+            self._index += 1
+            self.tools[self._index] = diameter
+        for point in points:
+            operation = RoutOperation(
+                tool=self._tool_to_index[diameter],
+                type=interpolation,
+                point=DrillHit(*point),
+            )
+            self.operations.append(operation)
+
+    def read(self, path) -> List[OPERATION_TYPES]:
         logging.info(f"Starting drill layer importer:")
         logging.info(f"\tFile: {path}")
 
@@ -96,7 +117,7 @@ class DrillLayer:
             self.comments += content[1:]
         elif op_type in [NCDrillFormat.SET_UNIT_MM, NCDrillFormat.SET_UNIT_INCH]:
             self.units = op_type.value
-        elif op_type == NCDrillFormat.TOOL_COMMAND:  # tool declaration
+        elif op_type == NCDrillFormat.SELECT_TOOL:  # tool declaration
             index, diameter = re.search(r"T(\d+)C([\d.]+)", data).groups()
             self.tools[int(index)] = float(diameter)
         elif op_type == NCDrillFormat.FORMAT:
@@ -118,7 +139,7 @@ class DrillLayer:
                     point=DrillHit.decode(content),
                 )
                 self.operations.append(operation)
-        elif op_type == NCDrillFormat.TOOL_COMMAND:
+        elif op_type == NCDrillFormat.SELECT_TOOL:
             index = int(content[1:])
             if index == 0:
                 return
@@ -131,14 +152,17 @@ class DrillLayer:
             )
             self.operations.append(operation)
         elif op_type == NCDrillFormat.TOOL_DOWN:
+            assert self.mode == NCDrillFormat.ROUT_MODE, f"Mode must be rout: {op_type}"
             self.operations.append(ToolOperation(True))
         elif op_type == NCDrillFormat.TOOL_UP:
+            assert self.mode == NCDrillFormat.ROUT_MODE, f"Mode must be rout: {op_type}"
             self.operations.append(ToolOperation(False))
         elif op_type in [
             NCDrillFormat.LINEAR_ROUT,
             NCDrillFormat.CIRCULAR_CLOCKWISE_ROUT,
             NCDrillFormat.CIRCULAR_COUNTERCLOCKWISE_ROUT,
         ]:
+            assert self.mode == NCDrillFormat.ROUT_MODE, "Must be in rout mode to rout"
             operation = RoutOperation(
                 tool=self._tool_index,
                 type=op_type,

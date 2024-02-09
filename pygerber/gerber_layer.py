@@ -32,11 +32,14 @@ class OperationState(NamedTuple):
     scalars: tuple
     units: Units
 
+
 class GerberLayerBaseException(Exception):
     pass
 
+
 class UnknownApertureError(GerberLayerBaseException):
     pass
+
 
 class GerberLayer:
     """
@@ -177,7 +180,10 @@ class GerberLayer:
             logging.info(f"{'START' if self.region else 'END'} Region")
         elif op_type in [gf.GerberFormat.DEPRECATED_SELECT_APERTURE]:
             self._process(content, raise_on_unknown_command)  # no-op
-        elif op_type in [gf.GerberFormat.DEPRECATED_PROGRAM_STOP, gf.GerberFormat.DEPRECATED_ABSOLUTE_NOTATION]:
+        elif op_type in [
+            gf.GerberFormat.DEPRECATED_PROGRAM_STOP,
+            gf.GerberFormat.DEPRECATED_ABSOLUTE_NOTATION,
+        ]:
             pass  # no-op
         elif op_type == gf.GerberFormat.END_OF_FILE:
             logging.info("End of file command.")

@@ -9,7 +9,6 @@ class NCDrillFormat(Enum):
     FORMAT = "FMAT,2"
     SET_UNIT_MM = "METRIC"
     SET_UNIT_INCH = "INCH"
-    TOOL_COMMAND = "T"
     END_OF_HEADER = "%"
     DRILL_MODE = "G05"
     ROUT_MODE = "G00"

@@ -22,21 +22,21 @@ This library provides a simple and elegant parser for Gerber and NC Drill files.
 ```
 
 # Features
-- [ ] Gerber X2 file parser
+- [x] Gerber X2 file parser
     - [x] Reading gerber layer
     - [x] Writing gerber layer
-    - [ ] SVG rendering
-        - [x] Render flash operation
-        - [x] Render linear interpolations
-        - [ ] Render circular interpolations
-- [ ] NC Drill file parser
+- [x] NC Drill file parser
     - [x] Reading X2 standard files
     - [x] Writing drill files
     - [x] API for drill operations
-    - [ ] API for rout operations 
-    - [ ] SVG rendering of drill files
-        - [x] Drill operations
-        - [ ] Rout operations
+    - [x] API for rout operations
+- [ ] SVG rendering
+    - [x] Drill operations
+    - [x] Linear rout operations
+    - [ ] Circular rout operations
+    - [x] Gerber flash operations
+    - [x] Gerber linear interpolations
+    - [ ] Gerber circular interpolations
 
 # Running Unit Tests
 Place gerber files in the `testdata` folder and run the unit tests:
