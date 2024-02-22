@@ -1,6 +1,42 @@
 # Python Gerber Library
 This library provides a simple and elegant parser for Gerber and NC Drill files. It's written in pure Python and supports all Gerber commands, including most deprecated ones.
 
+# Example
+## Setup
+```
+pip install python-gerber
+```
+## Usage
+```
+import pygerber.gerber_layer
+import pygerber.renderers.svg
+
+pygerber.gerber_layer.GerberLayer()
+gl = pygerber.gerber_layer.GerberLayer()
+gl.read("<path_to_gerber_file>")
+
+s = pygerber.renderers.svg.SvgLayerRenderer()
+s.add_layer(gl)
+s.save("<output_path.svg>")
+```
+
+# Features
+- [x] Gerber X2 file parser
+    - [x] Reading gerber layer
+    - [x] Writing gerber layer
+- [x] NC Drill file parser
+    - [x] Reading X2 standard files
+    - [x] Writing drill files
+    - [x] API for drill operations
+    - [x] API for rout operations
+- [ ] SVG rendering
+    - [x] Drill operations
+    - [x] Linear rout operations
+    - [ ] Circular rout operations
+    - [x] Gerber flash operations
+    - [x] Gerber linear interpolations
+    - [ ] Gerber circular interpolations
+
 # File Structure
 ```
 .
@@ -20,23 +56,6 @@ This library provides a simple and elegant parser for Gerber and NC Drill files.
     |   # All unit tests for this package
     └── test_package.py  
 ```
-
-# Features
-- [x] Gerber X2 file parser
-    - [x] Reading gerber layer
-    - [x] Writing gerber layer
-- [x] NC Drill file parser
-    - [x] Reading X2 standard files
-    - [x] Writing drill files
-    - [x] API for drill operations
-    - [x] API for rout operations
-- [ ] SVG rendering
-    - [x] Drill operations
-    - [x] Linear rout operations
-    - [ ] Circular rout operations
-    - [x] Gerber flash operations
-    - [x] Gerber linear interpolations
-    - [ ] Gerber circular interpolations
 
 # Running Unit Tests
 Place gerber files in the `testdata` folder and run the unit tests:
